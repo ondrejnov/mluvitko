@@ -1,0 +1,51 @@
+{
+  "name": "mluvitko",
+  "version": "1.0.0",
+  "description": "Push-to-talk voice input s AI transkripcí",
+  "author": "Ondrej",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win",
+    "build:dir": "electron-builder --win --dir"
+  },
+  "dependencies": {
+    "@jitsi/robotjs": "^0.6.0",
+    "form-data": "^4.0.0",
+    "loudness": "^0.4.2",
+    "node-fetch": "^3.3.2",
+    "uiohook-napi": "^1.5.3"
+  },
+  "devDependencies": {
+    "electron": "^28.3.0",
+    "electron-builder": "^24.9.1"
+  },
+  "build": {
+    "appId": "com.mluvitko.app",
+    "productName": "Mluvítko",
+    "copyright": "MIT",
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "runAfterFinish": true
+    },
+    "files": [
+      "main.js",
+      "overlay.html",
+      "recorder.html",
+      "assets/**"
+    ],
+    "extraResources": [],
+    "asar": true
+  }
+}

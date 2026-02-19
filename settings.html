@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Nastavení – Mluvítko</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1e1e2e;
+      color: #cdd6f4;
+      padding: 24px;
+      user-select: none;
+    }
+
+    h2 {
+      font-size: 15px;
+      font-weight: 600;
+      color: #cba6f7;
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      color: #a6adc8;
+      margin-bottom: 7px;
+    }
+
+    select {
+      width: 100%;
+      padding: 9px 12px;
+      background: #313244;
+      border: 1px solid #45475a;
+      border-radius: 7px;
+      color: #cdd6f4;
+      font-size: 13px;
+      outline: none;
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23a6adc8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 32px;
+    }
+
+    select:focus { border-color: #cba6f7; }
+
+    .status {
+      font-size: 11px;
+      color: #6c7086;
+      margin-top: 8px;
+      min-height: 16px;
+    }
+
+    .status.error { color: #f38ba8; }
+
+    .buttons {
+      display: flex;
+      gap: 8px;
+      margin-top: 22px;
+      justify-content: flex-end;
+    }
+
+    button {
+      padding: 8px 18px;
+      border-radius: 7px;
+      border: none;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+
+    .btn-save {
+      background: #cba6f7;
+      color: #1e1e2e;
+      font-weight: 600;
+    }
+    .btn-save:hover { background: #b4befe; }
+    .btn-save:disabled { background: #585b70; color: #a6adc8; cursor: not-allowed; }
+
+    .btn-cancel {
+      background: #313244;
+      color: #cdd6f4;
+    }
+    .btn-cancel:hover { background: #45475a; }
+  </style>
+</head>
+<body>
+  <h2>🎙 Nastavení mikrofonu</h2>
+  <label for="mic-select">Vyberte vstupní zařízení:</label>
+  <select id="mic-select" disabled>
+    <option value="">Načítám zařízení...</option>
+  </select>
+  <div class="status" id="status">Čekám na přístup k mikrofonu...</div>
+
+  <div class="buttons">
+    <button class="btn-cancel" onclick="window.close()">Zrušit</button>
+    <button class="btn-save" id="btn-save" onclick="save()" disabled>Uložit</button>
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron')
+
+    const sel = document.getElementById('mic-select')
+    const status = document.getElementById('status')
+    const btnSave = document.getElementById('btn-save')
+
+    async function loadDevices() {
+      try {
+        // Potřebujeme nejdřív povolení, aby jsme dostali labels zařízení
+        const tmpStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+        tmpStream.getTracks().forEach(t => t.stop())
+
+        const devices = await navigator.mediaDevices.enumerateDevices()
+        const inputs = devices.filter(d => d.kind === 'audioinput')
+
+        const cfg = await ipcRenderer.invoke('get-config')
+        const savedId = cfg.deviceId || ''
+
+        sel.innerHTML = ''
+
+        // Výchozí systémový mikrofon
+        const defOpt = document.createElement('option')
+        defOpt.value = ''
+        defOpt.textContent = 'Výchozí (systémový mikrofon)'
+        defOpt.selected = !savedId
+        sel.appendChild(defOpt)
+
+        inputs.forEach((d, i) => {
+          const opt = document.createElement('option')
+          opt.value = d.deviceId
+          opt.textContent = d.label || `Mikrofon ${i + 1} (${d.deviceId.substring(0, 8)}...)`
+          opt.selected = d.deviceId === savedId
+          sel.appendChild(opt)
+        })
+
+        sel.disabled = false
+        btnSave.disabled = false
+        status.textContent = `Nalezeno ${inputs.length} mikrofon${inputs.length === 1 ? '' : inputs.length < 5 ? 'y' : 'ů'}`
+        status.classList.remove('error')
+
+      } catch (err) {
+        status.textContent = `Chyba: ${err.message}`
+        status.classList.add('error')
+      }
+    }
+
+    function save() {
+      const deviceId = sel.value || null
+      ipcRenderer.invoke('save-settings', { deviceId }).then(() => window.close())
+    }
+
+    loadDevices()
+  </script>
+</body>
+</html>

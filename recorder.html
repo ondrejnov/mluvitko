@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body>
+<script>
+  const { ipcRenderer } = require('electron')
+
+  let mediaRecorder = null
+  let audioChunks = []
+  let stream = null
+  let selectedDeviceId = null
+
+  ipcRenderer.on('set-device', (event, deviceId) => {
+    selectedDeviceId = deviceId || null
+    // Reset cached stream so next recording uses the new device
+    if (stream) {
+      stream.getTracks().forEach(t => t.stop())
+      stream = null
+    }
+    console.log('Mikrofon nastaven:', selectedDeviceId || 'výchozí')
+  })
+
+  async function getStream() {
+    if (stream) return stream
+    const audioConstraints = selectedDeviceId
+      ? { deviceId: { exact: selectedDeviceId } }
+      : true
+    stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints, video: false })
+    return stream
+  }
+
+  ipcRenderer.on('start-recording', async () => {
+    try {
+      const s = await getStream()
+      audioChunks = []
+
+      // Preferuj webm/opus, fallback na dostupný formát
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/webm')
+          ? 'audio/webm'
+          : ''
+
+      mediaRecorder = new MediaRecorder(s, mimeType ? { mimeType } : {})
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunks.push(e.data)
+      }
+
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType })
+        const arrayBuffer = await blob.arrayBuffer()
+        ipcRenderer.send('audio-data', arrayBuffer)
+      }
+
+      mediaRecorder.start(100) // timeslice 100ms pro plynulé chunky
+      console.log('Nahrávání spuštěno, formát:', mediaRecorder.mimeType)
+
+    } catch (err) {
+      console.error('Chyba přístupu k mikrofonu:', err)
+    }
+  })
+
+  ipcRenderer.on('stop-recording', () => {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop()
+    }
+  })
+</script>
+</body>
+</html>

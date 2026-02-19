@@ -43,6 +43,7 @@
       "main.js",
       "overlay.html",
       "recorder.html",
+      "settings.html",
       "assets/**"
     ],
     "extraResources": [],

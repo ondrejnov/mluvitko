@@ -1,6 +1,8 @@
 # 🎙 Mluvítko
 
-Push-to-talk hlasový vstup s AI transkripcí. Drž **Ctrl+Win**, mluv, pusť – text se vloží do aktivního pole.
+Push-to-talk hlasový vstup s AI transkripcí. Tento nástroj umožňuje snadné zadávání textu hlasem. Stačí stisknout a držet klávesovou zkratku **Ctrl+Win**, mluvit, a po uvolnění kláves se přepsaný text automaticky vloží do aktivního textového pole.
+
+Tento projekt je self-hosted alternativa k online službě [WisprFlow](https://wisprflow.ai/), kterou se inspiroval. Nabízí podobnou funkcionalitu, ale běží lokálně na vašem zařízení, což zajišťuje větší kontrolu nad daty a soukromím. Je zcela zdarma, s výjimkou případného poplatku za využití OpenAI transkripčního modelu, pokud je použit.
 
 ---
 
@@ -71,6 +73,8 @@ voice-input/
 │   ├── tray-active.png  ← Ikona při nahrávání (červená)
 │   └── icon.ico         ← Ikona aplikace
 ```
+
+Pokud chcete vytvořit vlastní backend pro transkripci, podívejte se na [návod od OpenAI](https://developers.openai.com/api/docs/guides/speech-to-text).
 
 ---
 

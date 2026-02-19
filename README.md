@@ -4,7 +4,27 @@ Push-to-talk hlasový vstup s AI transkripcí. Tento nástroj umožňuje snadné
 
 Tento projekt je self-hosted alternativa k online službě [WisprFlow](https://wisprflow.ai/), kterou se inspiroval. Nabízí podobnou funkcionalitu, ale běží lokálně na vašem zařízení, což zajišťuje větší kontrolu nad daty a soukromím. Je zcela zdarma, s výjimkou případného poplatku za využití OpenAI transkripčního modelu, pokud je použit.
 
----
+## Uživatelské rozhraní
+
+Aplikace poskytuje jednoduché a intuitivní uživatelské rozhraní:
+
+1. **Ikona v systray:**
+   - Po spuštění aplikace se v systémové liště (systray) objeví ikona 🎙.
+   - Stav ikony:
+     - **Šedá:** Aplikace je připravena.
+     - **Červená:** Probíhá nahrávání.
+     - **Modrý spinner:** Probíhá přepis.
+
+2. **Plovoucí indikátor:**
+   - Během nahrávání se na obrazovce zobrazí malý plovoucí indikátor:
+     - **Červená tečka:** Signalizuje aktivní nahrávání.
+     - **Modrý spinner:** Signalizuje probíhající přepis.
+
+3. **Nastavení mikrofonu:**
+   - Kliknutím pravým tlačítkem na ikonu v systray lze otevřít nabídku s možností změny mikrofonu.
+
+Toto rozhraní je navrženo tak, aby bylo nenápadné a nerušilo uživatele během práce.
+
 
 ## Rychlý start
 
@@ -91,4 +111,6 @@ Pokud chcete vytvořit vlastní backend pro transkripci, podívejte se na [návo
 
 **Backend není dostupný:**
 → Aplikace se připojuje na vzdálený backend (hardcoded adresa v `main.js`). Zkontroluj, že je server dostupný, nebo uprav URL přímo v `main.js`.
+
+---
 

@@ -23,6 +23,9 @@ Aplikace poskytuje jednoduché a intuitivní uživatelské rozhraní:
 3. **Nastavení mikrofonu:**
    - Kliknutím pravým tlačítkem na ikonu v systray lze otevřít nabídku s možností změny mikrofonu.
 
+4. **Automatické ztlumení zvuku:**
+   - Během nahrávání se systémová hlasitost automaticky sníží na 10 %, aby se předešlo zpětné vazbě z mikrofonu. Po ukončení nahrávání se hlasitost obnoví na původní úroveň.
+
 Toto rozhraní je navrženo tak, aby bylo nenápadné a nerušilo uživatele během práce.
 
 

@@ -73,6 +73,10 @@
     ],
     "extraResources": [],
     "asar": true,
+    "asarUnpack": [
+      "node_modules/uiohook-napi/**",
+      "node_modules/@jitsi/robotjs/**"
+    ],
     "publish": [
       {
         "provider": "github",

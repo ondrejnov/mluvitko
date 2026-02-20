@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: [x64, arm64]
+        arch: [x64]
 
     runs-on: macos-latest
     name: macOS ${{ matrix.arch }}

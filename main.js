@@ -498,6 +498,10 @@ function registerHotkey() {
     console.log('Hotkey registrován (push-to-talk)')
   } catch (e) {
     console.error('Chyba při registraci hotkey (uiohook-napi):', e)
+    dialog.showErrorBox(
+      'Chyba klávesové zkratky',
+      `Nepodařilo se načíst modul pro globální zkratky.\n\n${e.message}\n\nZkuste přeinstalovat aplikaci nebo restartovat Mac.`
+    )
   }
 }
 

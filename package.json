@@ -12,6 +12,7 @@
     "build:mac:dir": "electron-builder --mac --dir"
   },
   "dependencies": {
+    "@jitsi/robotjs": "^0.6.21",
     "electron-updater": "^6.8.3",
     "form-data": "^4.0.0",
     "loudness": "^0.4.2",

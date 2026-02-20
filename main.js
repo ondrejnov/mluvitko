@@ -1,4 +1,4 @@
-const { app, globalShortcut, Tray, BrowserWindow, ipcMain, clipboard, screen, nativeImage, dialog, systemPreferences, shell } = require('electron')
+const { app, globalShortcut, Tray, BrowserWindow, ipcMain, clipboard, screen, nativeImage, dialog, systemPreferences } = require('electron')
 //const { autoUpdater } = require('electron-updater')
 const path = require('path')
 const fetch = (...args) => import('node-fetch').then(({ default: f }) => f(...args))
@@ -19,11 +19,8 @@ let audioChunks = []
 let recorderWindow = null
 let settingsWindow = null
 let isRecording = false
-let isStartingRecording = false
 let config = { deviceId: null, openAtLogin: false, language: 'cs', shortcut: 'Ctrl+Win', apiKey: '' }
 let savedVolume = null
-let isUiohookStarted = false
-let lastGlobalShortcutToggleAt = 0
 
 // Uloží aktuální hlasitost a sníží na 5 %
 async function volGetAndSet5() {
@@ -50,6 +47,38 @@ async function volRestore() {
 }
 
 // ─── Config ──────────────────────────────────────────────────────────────────
+function checkMacAccessibility(manual = false) {
+  if (process.platform === 'darwin') {
+    const isTrusted = systemPreferences.isTrustedAccessibilityClient(false)
+    if (!isTrusted) {
+      console.log('Vyžadováno oprávnění pro usnadnění (Accessibility).')
+      dialog.showMessageBox({
+        type: 'warning',
+        title: 'Oprávnění pro usnadnění',
+        message: 'Mluvítko potřebuje oprávnění pro usnadnění (Accessibility), aby mohlo reagovat na globální klávesové zkratky.\n\nPokud jste oprávnění již udělili a stále to nefunguje, odeberte Mluvítko ze seznamu (tlačítkem mínus) a přidejte jej znovu. Poté aplikaci restartujte.',
+        buttons: ['Otevřít nastavení', 'Zrušit']
+      }).then(({ response }) => {
+        if (response === 0) {
+          systemPreferences.isTrustedAccessibilityClient(true) // Toto otevře nastavení
+        }
+      })
+    } else if (manual) {
+      dialog.showMessageBox({
+        type: 'info',
+        title: 'Oprávnění pro usnadnění',
+        message: 'Systém hlásí, že oprávnění je uděleno. Pokud klávesy přesto nefungují, je to pravděpodobně způsobeno aktualizací aplikace (změna podpisu).\n\nŘešení: Otevřete Nastavení systému -> Soukromí a zabezpečení -> Zpřístupnění, odeberte Mluvítko ze seznamu (tlačítkem mínus) a přidejte jej znovu. Poté aplikaci restartujte.',
+        buttons: ['Otevřít nastavení', 'OK']
+      }).then(({ response }) => {
+        if (response === 0) {
+          systemPreferences.isTrustedAccessibilityClient(true)
+        }
+      })
+    }
+    return isTrusted
+  }
+  return true
+}
+
 function applyLoginSettings() {
   app.setLoginItemSettings({
     openAtLogin: !!config.openAtLogin,
@@ -65,12 +94,6 @@ function loadConfig() {
   try {
     if (fs.existsSync(configPath)) config = { ...config, ...JSON.parse(fs.readFileSync(configPath, 'utf8')) }
   } catch (e) { /* ignore */ }
-
-  if (process.platform === 'darwin' && config.shortcut === 'Ctrl+Win') {
-    config.shortcut = 'F8'
-    saveConfig()
-  }
-
   applyLoginSettings()
 }
 
@@ -79,44 +102,10 @@ function saveConfig() {
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2))
 }
 
-async function ensureMicrophoneAccess(showSettingsHint = true) {
-  if (process.platform !== 'darwin') return true
-
-  try {
-    let status = systemPreferences.getMediaAccessStatus('microphone')
-    if (status === 'granted' || status === 'not-determined') return true
-
-    if (showSettingsHint) {
-      const result = await dialog.showMessageBox({
-        type: 'warning',
-        title: 'Povolení mikrofonu',
-        message: 'Mluvítko potřebuje přístup k mikrofonu.',
-        detail: 'V macOS otevřete Nastavení systému → Soukromí a zabezpečení → Mikrofon a povolte Mluvítko.',
-        buttons: ['Otevřít nastavení', 'Později'],
-        defaultId: 0,
-        cancelId: 1
-      })
-
-      if (result.response === 0) {
-        try {
-          await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone')
-        } catch (openErr) {
-          console.error('Nelze otevřít stránku Mikrofon v nastavení systému:', openErr)
-          await shell.openExternal('x-apple.systempreferences:com.apple.preference.security')
-        }
-      }
-    }
-  } catch (e) {
-    console.error('Chyba při získávání oprávnění k mikrofonu:', e)
-  }
-
-  return false
-}
-
 // ─── App ready ───────────────────────────────────────────────────────────────
 let isManualUpdateCheck = false
 
-app.whenReady().then(async () => {
+app.whenReady().then(() => {
   if (process.platform === 'darwin' && !app.isPackaged) {
     try {
       app.dock.setIcon(nativeImage.createFromPath(path.join(__dirname, 'assets', 'icon.png')))
@@ -130,7 +119,10 @@ app.whenReady().then(async () => {
   createRecorderWindow()
 
   // Počkej až jsou okna ready, pak registruj hotkey
-  setTimeout(() => registerHotkey(), 1000)
+  setTimeout(() => {
+    checkMacAccessibility()
+    registerHotkey()
+  }, 1000)
 
   // Zkontroluj aktualizace
   //autoUpdater.checkForUpdatesAndNotify()
@@ -181,14 +173,13 @@ app.on('will-quit', () => globalShortcut.unregisterAll())
 // ─── Tray ────────────────────────────────────────────────────────────────────
 function updateTrayMenu() {
   const shortcut = config.shortcut || 'Ctrl+Win'
-  const actionLabel = process.platform === 'darwin' ? 'stiskni' : 'drž'
-  tray.setToolTip(`Mluvítko – ${actionLabel} ${shortcut} pro nahrávání`)
+  tray.setToolTip(`Mluvítko – drž ${shortcut} pro nahrávání`)
 
   const { Menu } = require('electron')
   const menuTemplate = [
     { label: 'Mluvítko', enabled: false },
     { type: 'separator' },
-    { label: `Hotkey: ${shortcut} (${process.platform === 'darwin' ? 'přepínač' : 'držet'})`, enabled: false },
+    { label: `Hotkey: ${shortcut} (držet)`, enabled: false },
     { type: 'separator' }
   ]
 
@@ -205,6 +196,7 @@ function updateTrayMenu() {
     //     autoUpdater.checkForUpdatesAndNotify()
     //   }
     // },
+    ...(process.platform === 'darwin' ? [{ label: 'Opravit oprávnění kláves (Mac)', click: () => checkMacAccessibility(true) }] : []),
     { label: 'Nastavení...', click: () => openSettings() },
     { type: 'separator' },
     { label: 'Ukončit', click: () => app.exit(0) }
@@ -224,8 +216,7 @@ function setTrayActive(active) {
   let icon = nativeImage.createFromPath(path.join(__dirname, 'assets', active ? 'tray-active.png' : 'tray-idle.png'))
   const shortcut = config.shortcut || 'Ctrl+Win'
   tray.setImage(icon)
-  const actionLabel = process.platform === 'darwin' ? 'stiskni' : 'drž'
-  tray.setToolTip(active ? '🔴 Nahrávám...' : `Mluvítko – ${actionLabel} ${shortcut} pro nahrávání`)
+  tray.setToolTip(active ? '🔴 Nahrávám...' : `Mluvítko – drž ${shortcut} pro nahrávání`)
 }
 
 // ─── Overlay okno ────────────────────────────────────────────────────────────
@@ -316,18 +307,18 @@ function openAccount() {
 }
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
-// async function handleLogin() {
-//   try {
-//     const tokenData = await loginWithGoogle()
-//     if (tokenData.id_token) {
-//       await authenticateWithBackend(tokenData.id_token)
-//     }
-//   } catch (err) {
-//     console.error('Chyba přihlášení:', err)
-//     tray.setToolTip(`❌ Chyba přihlášení: ${err.message}`)
-//     setTimeout(() => updateTrayMenu(), 3000)
-//   }
-// }
+async function handleLogin() {
+  try {
+    const tokenData = await loginWithGoogle()
+    if (tokenData.id_token) {
+      await authenticateWithBackend(tokenData.id_token)
+    }
+  } catch (err) {
+    console.error('Chyba přihlášení:', err)
+    tray.setToolTip(`❌ Chyba přihlášení: ${err.message}`)
+    setTimeout(() => updateTrayMenu(), 3000)
+  }
+}
 
 async function authenticateWithBackend(idToken) {
   try {
@@ -416,21 +407,15 @@ function normalizeKey(keycode) {
 }
 
 function registerHotkey() {
-  if (process.platform === 'darwin') {
-    registerMacGlobalShortcut()
-    return
-  }
-
   try {
     const { uIOhook } = require('uiohook-napi')
-
-    if (isUiohookStarted) return
 
     uIOhook.on('keydown', (e) => {
       activeKeys.add(normalizeKey(e.keycode))
       const targetKeys = getTargetKeys()
 
-      if (targetKeys.every(k => activeKeys.has(k)) && !isRecording && !isStartingRecording) {
+      if (targetKeys.every(k => activeKeys.has(k)) && !isRecording) {
+        isRecording = true
         startRecording()
       }
     })
@@ -439,82 +424,21 @@ function registerHotkey() {
       activeKeys.delete(normalizeKey(e.keycode))
       const targetKeys = getTargetKeys()
 
-      if (!targetKeys.every(k => activeKeys.has(k)) && (isRecording || isStartingRecording)) {
+      if (!targetKeys.every(k => activeKeys.has(k)) && isRecording) {
+        isRecording = false
         stopAndSend()
       }
     })
 
     uIOhook.start()
-    isUiohookStarted = true
     console.log('Hotkey registrován (push-to-talk)')
   } catch (e) {
     console.error('Chyba při registraci hotkey (uiohook-napi):', e)
   }
 }
 
-function getMacAccelerator(shortcut) {
-  const map = {
-    'Ctrl+Space': 'Control+Space',
-    'Alt+Space': 'Alt+Space',
-    'Shift+Space': 'Shift+Space',
-    'F8': 'F8',
-    'F9': 'F9',
-    'F10': 'F10',
-    'F12': 'F12'
-  }
-  return map[shortcut] || null
-}
-
-function registerMacGlobalShortcut() {
-  globalShortcut.unregisterAll()
-
-  let shortcut = config.shortcut || 'F8'
-  let accelerator = getMacAccelerator(shortcut)
-
-  if (!accelerator) {
-    shortcut = 'F8'
-    config.shortcut = shortcut
-    saveConfig()
-    accelerator = getMacAccelerator(shortcut)
-  }
-
-  const ok = globalShortcut.register(accelerator, () => {
-    const now = Date.now()
-    if (now - lastGlobalShortcutToggleAt < 250) return
-    lastGlobalShortcutToggleAt = now
-
-    if (isRecording || isStartingRecording) {
-      stopAndSend()
-    } else {
-      startRecording()
-    }
-  })
-
-  if (!ok) {
-    tray.setToolTip('❌ Nelze registrovat hotkey. Změň zkratku v Nastavení.')
-    setTimeout(() => updateTrayMenu(), 3000)
-    console.error('Nelze registrovat macOS hotkey:', accelerator)
-    return
-  }
-
-  updateTrayMenu()
-  console.log('Hotkey registrován (macOS toggle):', accelerator)
-}
-
 // ─── Nahrávání ───────────────────────────────────────────────────────────────
 async function startRecording() {
-  if (isRecording || isStartingRecording) return
-  isStartingRecording = true
-
-  const hasMicrophoneAccess = await ensureMicrophoneAccess(false)
-  if (!hasMicrophoneAccess) {
-    isStartingRecording = false
-    tray.setToolTip('❌ Mikrofon není povolen. Otevři Nastavení systému → Mikrofon.')
-    setTimeout(() => updateTrayMenu(), 3000)
-    await ensureMicrophoneAccess(true)
-    return
-  }
-
   console.log('▶ Start nahrávání')
   savedVolume = await volGetAndSet5()  // Sníž hlasitost PC na 10 %
   setTrayActive(true)
@@ -537,21 +461,6 @@ async function startRecording() {
 }
 
 async function stopAndSend() {
-  if (isStartingRecording && !isRecording) {
-    isStartingRecording = false
-    await volRestore()
-    setTrayActive(false)
-    overlayWindow.hide()
-    return
-  }
-
-  if (!isRecording) {
-    isStartingRecording = false
-    return
-  }
-
-  isRecording = false
-  isStartingRecording = false
   console.log('⏹ Stop nahrávání')
   await volRestore()  // Obnov hlasitost hned po zastavení nahrávání
   setTrayActive(false)
@@ -565,19 +474,9 @@ async function stopAndSend() {
 ipcMain.handle('get-config', () => config)
 ipcMain.handle('save-settings', (event, newConfig) => {
   config = { ...config, ...newConfig }
-
-  if (process.platform === 'darwin' && config.shortcut === 'Ctrl+Win') {
-    config.shortcut = 'F8'
-  }
-
   saveConfig()
   applyLoginSettings()
   updateTrayMenu()
-
-  if (process.platform === 'darwin') {
-    registerMacGlobalShortcut()
-  }
-
   if (recorderWindow && !recorderWindow.isDestroyed()) {
     recorderWindow.webContents.send('set-device', config.deviceId)
   }
@@ -645,35 +544,12 @@ ipcMain.on('audio-data', async (event, arrayBuffer) => {
     console.error('Chyba při transkripci:', err.message)
     // Zobraz chybu v tray tooltipu na 3s
     tray.setToolTip(`❌ Chyba: ${err.message}`)
-    setTimeout(() => updateTrayMenu(), 3000)
+    setTimeout(() => tray.setToolTip('Mluvítko – drž Ctrl+Win pro nahrávání'), 3000)
   } finally {
     try {
       if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath)
     } catch (e) {
       console.error('Chyba při mazání dočasného souboru:', e.message)
     }
-  }
-})
-
-ipcMain.on('recording-started', () => {
-  isRecording = true
-  isStartingRecording = false
-})
-
-ipcMain.on('recording-error', async (event, payload = {}) => {
-  console.error('Chyba startu nahrávání:', payload)
-  isRecording = false
-  isStartingRecording = false
-
-  await volRestore()
-  setTrayActive(false)
-  overlayWindow.hide()
-
-  const isPermissionError = payload.code === 'NotAllowedError' || payload.code === 'SecurityError'
-  if (isPermissionError && process.platform === 'darwin') {
-    await ensureMicrophoneAccess(true)
-  } else {
-    tray.setToolTip(`❌ Chyba: ${payload.message || 'Nelze spustit nahrávání'}`)
-    setTimeout(() => updateTrayMenu(), 3000)
   }
 })

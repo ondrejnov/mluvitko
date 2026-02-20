@@ -34,7 +34,8 @@
       "entitlements": "entitlements.mac.plist",
       "entitlementsInherit": "entitlements.mac.plist",
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "Mluvítko potřebuje přístup k mikrofonu pro nahrávání hlasu a přepis řeči na text."
+        "NSMicrophoneUsageDescription": "Mluvítko potřebuje přístup k mikrofonu pro nahrávání hlasu a přepis řeči na text.",
+        "NSAccessibilityUsageDescription": "Mluvítko potřebuje oprávnění pro usnadnění (Accessibility), aby mohlo reagovat na globální klávesové zkratky."
       }
     },
     "win": {

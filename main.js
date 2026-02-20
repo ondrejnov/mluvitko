@@ -1,5 +1,6 @@
 const { app, globalShortcut, Tray, BrowserWindow, ipcMain, clipboard, screen, nativeImage, dialog, systemPreferences, shell } = require('electron')
 //const { autoUpdater } = require('electron-updater')
+const screenshot = require('screenshot-desktop')
 const path = require('path')
 const fetch = (...args) => import('node-fetch').then(({ default: f }) => f(...args))
 const fs = require('fs')
@@ -19,8 +20,9 @@ let audioChunks = []
 let recorderWindow = null
 let settingsWindow = null
 let isRecording = false
-let config = { deviceId: null, openAtLogin: false, language: 'cs', shortcut: 'Ctrl+Win', apiKey: '' }
+let config = { deviceId: null, openAtLogin: false, language: 'cs', shortcut: 'Ctrl+Win', apiKey: '', llmUrl: 'http://10.0.0.232:1234', screenshotEnabled: true, fixedPrompt: '' }
 let savedVolume = null
+let currentPrompt = ''
 
 const SUPPORTED_SHORTCUTS = process.platform === 'darwin'
   ? ['Ctrl+Win', 'Alt+Space', 'Shift+Space', 'F8', 'F9', 'F10', 'F12']
@@ -327,7 +329,7 @@ function openSettings() {
   }
   settingsWindow = new BrowserWindow({
     width: 450,
-    height: 520,
+    height: 640,
     title: 'Nastavení – Mluvítko',
     resizable: false,
     minimizable: false,
@@ -471,7 +473,7 @@ function registerHotkey() {
   try {
     const { uIOhook } = require('uiohook-napi')
 
-    uIOhook.on('keydown', (e) => {
+    uIOhook.on('keydown',  (e) => {
       activeKeys.add(normalizeKey(e.keycode))
       const targetKeys = getTargetKeys()
 
@@ -479,6 +481,7 @@ function registerHotkey() {
         isRecording = true
         startRecording()
       }
+
     })
 
     uIOhook.on('keyup', (e) => {
@@ -511,14 +514,57 @@ async function startRecording() {
   overlayWindow.webContents.send('recording-start')
   recorderWindow.webContents.send('start-recording')
 
-  // Pořiď screenshot
-  // try {
-  //   const screenshotPath = path.join(app.getPath('temp'), 'mluvitko-screenshot.png')
-  //   await screenshot({ filename: screenshotPath })
-  //   console.log(`Screenshot uložen: ${screenshotPath}`)
-  // } catch (err) {
-  //   console.error('Chyba při pořizování screenshotu:', err)
-  // }
+  // Nastav prompt – fixní nebo ze screenshotu
+  currentPrompt = config.fixedPrompt || ''
+
+  if (config.screenshotEnabled !== false) {
+    try {
+      const screenshotPath = path.join(app.getPath('temp'), 'mluvitko-screenshot.png')
+      await screenshot({ filename: screenshotPath })
+      console.log(`Screenshot uložen: ${screenshotPath}`)
+      try {
+        if (fs.existsSync(screenshotPath)) {
+          const imageBuffer = fs.readFileSync(screenshotPath)
+          const base64Image = imageBuffer.toString('base64')
+
+          console.log('Odesílám screenshot do LM Studio...')
+          const llmRes = await fetch(`${config.llmUrl}/v1/chat/completions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: 'local-model',
+              messages: [
+                {
+                  role: 'user',
+                  content: [
+                    { type: 'text', text: 'Co je na tomto obrázku? Popiš nejdůležitější prvky, texty, názvy proměnných a jména. Bude to krátký kontext pro speak-to-text model. Max 400 tokenů.' },
+                    { type: 'image_url', image_url: { url: `data:image/png;base64,${base64Image}` } }
+                  ]
+                }
+              ],
+              max_tokens: 400
+            })
+          })
+
+          if (llmRes.ok) {
+            const llmData = await llmRes.json()
+            if (llmData.choices && llmData.choices.length > 0) {
+              currentPrompt = llmData.choices[0].message.content
+              console.log('LLM Odpověď:', currentPrompt)
+            }
+          } else {
+            console.error('Chyba z LLM:', await llmRes.text())
+          }
+        }
+      } catch (llmErr) {
+        console.error('Chyba při volání LLM:', llmErr)
+      }
+    } catch (err) {
+      console.error('Chyba při pořizování screenshotu:', err)
+    }
+  } else {
+    console.log('Screenshot vypnut, používám fixní prompt.')
+  }
 }
 
 async function stopAndSend() {
@@ -567,18 +613,20 @@ ipcMain.on('audio-data', async (event, arrayBuffer) => {
     }
     const openai = new OpenAI({ apiKey: config.apiKey })
 
-    const transcription = await openai.audio.transcriptions.create({
-      model: 'gpt-4o-transcribe',
-      file: fs.createReadStream(tempPath),
-      prompt: 'The following conversation is about frontend and backend programming.',
-      language: config.language && config.language !== 'auto' ? config.language : undefined
-    })
+    // const transcription = await openai.audio.transcriptions.create({
+    //   model: 'gpt-4o-transcribe',
+    //   file: fs.createReadStream(tempPath),
+    //   prompt: currentPrompt || undefined,
+    //   language: config.language && config.language !== 'auto' ? config.language : undefined
+    // })
 
-    //const transcription = {text: 'Toto je testovací transkripce. Nahrajte skutečné audio pro reálný výsledek.'} // Fallback pro testování bez API
+    const transcription = {text: 'Simulovaná transkripce – nahrajte skutečný audio soubor a nastavte OpenAI API klíč pro získání reálné transkripce.'}
     const text = transcription.text
     console.log('Transkripce:', text)
 
-    if (text && text.trim()) {
+    const finalText = text.trim()
+
+    if (finalText) {
       // Skryj overlay těsně před vložením, aby focus zůstal na inputu
       overlayWindow.hide()
 
@@ -587,7 +635,7 @@ ipcMain.on('audio-data', async (event, arrayBuffer) => {
 
       // Vlož text přes schránku + Ctrl+V
       const prevClipboard = clipboard.readText()
-      clipboard.writeText(text.trim())
+      clipboard.writeText(finalText)
       try {
         const robot = require('@jitsi/robotjs')
         robot.keyTap('v', process.platform === 'darwin' ? ['command'] : ['control'])

@@ -214,6 +214,28 @@
         </label>
       </div>
     </div>
+
+    <div class="section">
+      <h2>🖼 Kontext pro přepis</h2>
+
+      <div class="row">
+        <label for="screenshot-enabled">Pořizovat screenshot</label>
+        <label class="switch">
+          <input type="checkbox" id="screenshot-enabled" onchange="toggleScreenshotMode()">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="row" id="llm-url-row">
+        <label for="llm-url">URL lokálního modelu</label>
+        <input type="text" id="llm-url" placeholder="http://10.0.0.232:1234" style="width: 200px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; outline: none;">
+      </div>
+
+      <div class="row" id="fixed-prompt-row" style="display:none; flex-direction: column; align-items: flex-start; gap: 6px;">
+        <label for="fixed-prompt">Fixní prompt</label>
+        <textarea id="fixed-prompt" rows="3" placeholder="Kontext pro přepis, např. 'Programuji v TypeScriptu, React, Node.js...'" style="width: 100%; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; outline: none; resize: vertical; font-family: inherit; color: #333; background: #fff;"></textarea>
+      </div>
+    </div>
   </div>
 
   <div class="buttons">
@@ -261,6 +283,12 @@
       })
     }
 
+    function toggleScreenshotMode() {
+      const enabled = document.getElementById('screenshot-enabled').checked
+      document.getElementById('llm-url-row').style.display = enabled ? '' : 'none'
+      document.getElementById('fixed-prompt-row').style.display = enabled ? 'none' : 'flex'
+    }
+
     async function loadDevices() {
       try {
         // Potřebujeme nejdřív povolení, aby jsme dostali labels zařízení
@@ -277,6 +305,10 @@
         document.getElementById('lang-select').value = cfg.language || 'cs'
         renderShortcutOptions(cfg.shortcut || 'Ctrl+Win')
         document.getElementById('api-key').value = cfg.apiKey || ''
+        document.getElementById('llm-url').value = cfg.llmUrl || 'http://10.0.0.232:1234'
+        document.getElementById('screenshot-enabled').checked = cfg.screenshotEnabled !== false
+        document.getElementById('fixed-prompt').value = cfg.fixedPrompt || ''
+        toggleScreenshotMode()
 
         sel.innerHTML = ''
 
@@ -312,7 +344,10 @@
       const language = document.getElementById('lang-select').value
       const shortcut = document.getElementById('shortcut-select').value
       const apiKey = document.getElementById('api-key').value
-      ipcRenderer.invoke('save-settings', { deviceId, openAtLogin, language, shortcut, apiKey }).then(() => window.close())
+      const llmUrl = document.getElementById('llm-url').value.trim() || 'http://10.0.0.232:1234'
+      const screenshotEnabled = document.getElementById('screenshot-enabled').checked
+      const fixedPrompt = document.getElementById('fixed-prompt').value
+      ipcRenderer.invoke('save-settings', { deviceId, openAtLogin, language, shortcut, apiKey, llmUrl, screenshotEnabled, fixedPrompt }).then(() => window.close())
     }
 
     loadDevices()

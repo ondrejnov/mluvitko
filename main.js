@@ -75,8 +75,12 @@ function saveConfig() {
 let isManualUpdateCheck = false
 
 app.whenReady().then(() => {
-  if (process.platform === 'darwin') {
-    app.dock.setIcon(path.join(__dirname, 'assets', 'icon.png'))
+  if (process.platform === 'darwin' && !app.isPackaged) {
+    try {
+      app.dock.setIcon(nativeImage.createFromPath(path.join(__dirname, 'assets', 'icon.png')))
+    } catch (e) {
+      console.error('Chyba při nastavení dock ikony:', e)
+    }
   }
   loadConfig()
   createTray()
@@ -373,7 +377,6 @@ function registerHotkey() {
   const { uIOhook } = require('uiohook-napi')
 
   uIOhook.on('keydown', (e) => {
-    console.log(e.keycode)
     activeKeys.add(normalizeKey(e.keycode))
     const targetKeys = getTargetKeys()
 

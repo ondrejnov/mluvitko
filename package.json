@@ -1,6 +1,6 @@
 {
   "name": "mluvitko",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Push-to-talk voice input s AI transkripcí",
   "author": "Ondrej",
   "main": "main.js",

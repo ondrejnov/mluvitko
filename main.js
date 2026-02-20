@@ -396,7 +396,7 @@ function registerHotkey() {
 // ─── Nahrávání ───────────────────────────────────────────────────────────────
 async function startRecording() {
   console.log('▶ Start nahrávání')
-  savedVolume = await volGetAndSet5()  // Sníž hlasitost PC na 5 %
+  savedVolume = await volGetAndSet5()  // Sníž hlasitost PC na 10 %
   setTrayActive(true)
   overlayWindow.show()
   overlayWindow.webContents.send('recording-start')
@@ -404,7 +404,7 @@ async function startRecording() {
 
   // Pořiď screenshot
   try {
-    const screenshotPath = path.join(app.getPath('temp'), 'voice-input-screenshot.png')
+    const screenshotPath = path.join(app.getPath('temp'), 'mluvitko-screenshot.png')
     await screenshot({ filename: screenshotPath })
     console.log(`Screenshot uložen: ${screenshotPath}`)
   } catch (err) {

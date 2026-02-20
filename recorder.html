@@ -55,9 +55,14 @@
 
       mediaRecorder.start(100) // timeslice 100ms pro plynulé chunky
       console.log('Nahrávání spuštěno, formát:', mediaRecorder.mimeType)
+      ipcRenderer.send('recording-started')
 
     } catch (err) {
       console.error('Chyba přístupu k mikrofonu:', err)
+      ipcRenderer.send('recording-error', {
+        code: err?.name || 'RecordStartError',
+        message: err?.message || 'Neznámá chyba při startu nahrávání'
+      })
     }
   })
 

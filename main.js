@@ -19,8 +19,10 @@ let audioChunks = []
 let recorderWindow = null
 let settingsWindow = null
 let isRecording = false
+let isStartingRecording = false
 let config = { deviceId: null, openAtLogin: false, language: 'cs', shortcut: 'Ctrl+Win', apiKey: '' }
 let savedVolume = null
+let hasShownAccessibilityHint = false
 
 // Uloží aktuální hlasitost a sníží na 5 %
 async function volGetAndSet5() {
@@ -75,13 +77,7 @@ async function ensureMicrophoneAccess(showSettingsHint = true) {
 
   try {
     let status = systemPreferences.getMediaAccessStatus('microphone')
-    if (status === 'granted') return true
-
-    if (status === 'not-determined') {
-      const granted = await systemPreferences.askForMediaAccess('microphone')
-      if (granted) return true
-      status = systemPreferences.getMediaAccessStatus('microphone')
-    }
+    if (status === 'granted' || status === 'not-determined') return true
 
     if (showSettingsHint) {
       const result = await dialog.showMessageBox({
@@ -95,7 +91,12 @@ async function ensureMicrophoneAccess(showSettingsHint = true) {
       })
 
       if (result.response === 0) {
-        await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone')
+        try {
+          await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone')
+        } catch (openErr) {
+          console.error('Nelze otevřít stránku Mikrofon v nastavení systému:', openErr)
+          await shell.openExternal('x-apple.systempreferences:com.apple.preference.security')
+        }
       }
     }
   } catch (e) {
@@ -116,7 +117,6 @@ app.whenReady().then(async () => {
       console.error('Chyba při nastavení dock ikony:', e)
     }
   }
-  await ensureMicrophoneAccess(true)
   loadConfig()
   createTray()
   createOverlay()
@@ -408,14 +408,46 @@ function normalizeKey(keycode) {
 
 function registerHotkey() {
   try {
+    if (process.platform === 'darwin') {
+      let isTrusted = true
+      try {
+        isTrusted = systemPreferences.isTrustedAccessibilityClient(false)
+      } catch (accessErr) {
+        console.error('Chyba při kontrole Accessibility oprávnění:', accessErr)
+      }
+
+      if (!isTrusted) {
+        if (!hasShownAccessibilityHint) {
+          hasShownAccessibilityHint = true
+          dialog.showMessageBox({
+            type: 'warning',
+            title: 'Povolení klávesnice',
+            message: 'Mluvítko potřebuje oprávnění Ovládání (Accessibility) pro globální hotkey.',
+            detail: 'Otevřete Nastavení systému → Soukromí a zabezpečení → Ovládání a povolte Mluvítko.',
+            buttons: ['Otevřít nastavení', 'Později'],
+            defaultId: 0,
+            cancelId: 1
+          }).then(async (res) => {
+            if (res.response === 0) {
+              try {
+                await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility')
+              } catch (openErr) {
+                console.error('Nelze otevřít stránku Ovládání v nastavení systému:', openErr)
+              }
+            }
+          })
+        }
+        return
+      }
+    }
+
     const { uIOhook } = require('uiohook-napi')
 
     uIOhook.on('keydown', (e) => {
       activeKeys.add(normalizeKey(e.keycode))
       const targetKeys = getTargetKeys()
 
-      if (targetKeys.every(k => activeKeys.has(k)) && !isRecording) {
-        isRecording = true
+      if (targetKeys.every(k => activeKeys.has(k)) && !isRecording && !isStartingRecording) {
         startRecording()
       }
     })
@@ -424,8 +456,7 @@ function registerHotkey() {
       activeKeys.delete(normalizeKey(e.keycode))
       const targetKeys = getTargetKeys()
 
-      if (!targetKeys.every(k => activeKeys.has(k)) && isRecording) {
-        isRecording = false
+      if (!targetKeys.every(k => activeKeys.has(k)) && (isRecording || isStartingRecording)) {
         stopAndSend()
       }
     })
@@ -439,10 +470,15 @@ function registerHotkey() {
 
 // ─── Nahrávání ───────────────────────────────────────────────────────────────
 async function startRecording() {
+  if (isRecording || isStartingRecording) return
+  isStartingRecording = true
+
   const hasMicrophoneAccess = await ensureMicrophoneAccess(false)
   if (!hasMicrophoneAccess) {
+    isStartingRecording = false
     tray.setToolTip('❌ Mikrofon není povolen. Otevři Nastavení systému → Mikrofon.')
     setTimeout(() => updateTrayMenu(), 3000)
+    await ensureMicrophoneAccess(true)
     return
   }
 
@@ -468,6 +504,21 @@ async function startRecording() {
 }
 
 async function stopAndSend() {
+  if (isStartingRecording && !isRecording) {
+    isStartingRecording = false
+    await volRestore()
+    setTrayActive(false)
+    overlayWindow.hide()
+    return
+  }
+
+  if (!isRecording) {
+    isStartingRecording = false
+    return
+  }
+
+  isRecording = false
+  isStartingRecording = false
   console.log('⏹ Stop nahrávání')
   await volRestore()  // Obnov hlasitost hned po zastavení nahrávání
   setTrayActive(false)
@@ -558,5 +609,28 @@ ipcMain.on('audio-data', async (event, arrayBuffer) => {
     } catch (e) {
       console.error('Chyba při mazání dočasného souboru:', e.message)
     }
+  }
+})
+
+ipcMain.on('recording-started', () => {
+  isRecording = true
+  isStartingRecording = false
+})
+
+ipcMain.on('recording-error', async (event, payload = {}) => {
+  console.error('Chyba startu nahrávání:', payload)
+  isRecording = false
+  isStartingRecording = false
+
+  await volRestore()
+  setTrayActive(false)
+  overlayWindow.hide()
+
+  const isPermissionError = payload.code === 'NotAllowedError' || payload.code === 'SecurityError'
+  if (isPermissionError && process.platform === 'darwin') {
+    await ensureMicrophoneAccess(true)
+  } else {
+    tray.setToolTip(`❌ Chyba: ${payload.message || 'Nelze spustit nahrávání'}`)
+    setTimeout(() => updateTrayMenu(), 3000)
   }
 })

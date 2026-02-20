@@ -1,4 +1,4 @@
-const { app, globalShortcut, Tray, BrowserWindow, ipcMain, clipboard, screen, nativeImage, dialog, systemPreferences } = require('electron')
+const { app, globalShortcut, Tray, BrowserWindow, ipcMain, clipboard, screen, nativeImage, dialog, systemPreferences, shell } = require('electron')
 //const { autoUpdater } = require('electron-updater')
 const path = require('path')
 const fetch = (...args) => import('node-fetch').then(({ default: f }) => f(...args))
@@ -59,7 +59,7 @@ function checkMacAccessibility(manual = false) {
         buttons: ['Otevřít nastavení', 'Zrušit']
       }).then(({ response }) => {
         if (response === 0) {
-          systemPreferences.isTrustedAccessibilityClient(true) // Toto otevře nastavení
+          shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility')
         }
       })
     } else if (manual) {
@@ -70,7 +70,7 @@ function checkMacAccessibility(manual = false) {
         buttons: ['Otevřít nastavení', 'OK']
       }).then(({ response }) => {
         if (response === 0) {
-          systemPreferences.isTrustedAccessibilityClient(true)
+          shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility')
         }
       })
     }

@@ -27,7 +27,7 @@
   },
   "build": {
     "appId": "com.mluvitko.app",
-    "productName": "Mluvítko",
+    "productName": "Mluvitko",
     "copyright": "MIT",
     "mac": {
       "icon": "assets/icon512.png",

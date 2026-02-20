@@ -12,7 +12,6 @@
     "build:mac:dir": "electron-builder --mac --dir"
   },
   "dependencies": {
-    "@jitsi/robotjs": "^0.6.0",
     "electron-updater": "^6.8.3",
     "form-data": "^4.0.0",
     "loudness": "^0.4.2",
@@ -39,8 +38,31 @@
       }
     },
     "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
       "icon": "assets/icon.ico"
     },
+    "nsis": {
+      "oneClick": true,
+      "runAfterFinish": true
+    },
+    "files": [
+      "main.js",
+      "auth.js",
+      "overlay.html",
+      "recorder.html",
+      "settings.html",
+      "account.html",
+      "assets/**"
+    ],
+    "extraResources": [],
+    "asar": true,
     "publish": [
       {
         "provider": "github",

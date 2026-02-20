@@ -567,14 +567,14 @@ ipcMain.on('audio-data', async (event, arrayBuffer) => {
     }
     const openai = new OpenAI({ apiKey: config.apiKey })
 
-    // const transcription = await openai.audio.transcriptions.create({
-    //   model: 'gpt-4o-transcribe',
-    //   file: fs.createReadStream(tempPath),
-    //   prompt: 'The following conversation is about frontend and backend programming.',
-    //   language: config.language && config.language !== 'auto' ? config.language : undefined
-    // })
+    const transcription = await openai.audio.transcriptions.create({
+      model: 'gpt-4o-transcribe',
+      file: fs.createReadStream(tempPath),
+      prompt: 'The following conversation is about frontend and backend programming.',
+      language: config.language && config.language !== 'auto' ? config.language : undefined
+    })
 
-    const transcription = {text: 'Toto je testovací transkripce. Nahrajte skutečné audio pro reálný výsledek.'} // Fallback pro testování bez API
+    //const transcription = {text: 'Toto je testovací transkripce. Nahrajte skutečné audio pro reálný výsledek.'} // Fallback pro testování bez API
     const text = transcription.text
     console.log('Transkripce:', text)
 
@@ -586,17 +586,17 @@ ipcMain.on('audio-data', async (event, arrayBuffer) => {
       await new Promise(resolve => setTimeout(resolve, 80))
 
       // Vlož text přes schránku + Ctrl+V
-      const prevClipboard = clipboard.readText()
-      clipboard.writeText(text.trim())
-      try {
-        const robot = require('@jitsi/robotjs')
-        robot.keyTap('v', process.platform === 'darwin' ? ['command'] : ['control'])
-      } catch (e) {
-        console.error('Chyba při vkládání textu (robotjs):', e)
-      }
+      // const prevClipboard = clipboard.readText()
+      // clipboard.writeText(text.trim())
+      // try {
+      //   const robot = require('@jitsi/robotjs')
+      //   robot.keyTap('v', process.platform === 'darwin' ? ['command'] : ['control'])
+      // } catch (e) {
+      //   console.error('Chyba při vkládání textu (robotjs):', e)
+      // }
 
-      // Obnov původní obsah schránky po malém zpoždění
-      setTimeout(() => clipboard.writeText(prevClipboard), 500)
+      // // Obnov původní obsah schránky po malém zpoždění
+      // setTimeout(() => clipboard.writeText(prevClipboard), 500)
     } else {
       overlayWindow.hide()
     }

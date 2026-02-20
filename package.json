@@ -55,7 +55,7 @@
       "entitlementsInherit": "entitlements.mac.plist",
       "hardenedRuntime": true,
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "Mluvítko potřebuje přístup k mikrofonu pro hlasové nahrávání a přepis." 
+        "NSMicrophoneUsageDescription": "Mluvítko potřebuje přístup k mikrofonu pro hlasové nahrávání a přepis."
       }
     },
     "dmg": {

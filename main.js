@@ -75,6 +75,9 @@ function saveConfig() {
 let isManualUpdateCheck = false
 
 app.whenReady().then(() => {
+  if (process.platform === 'darwin') {
+    app.dock.setIcon(path.join(__dirname, 'assets', 'icon.png'))
+  }
   loadConfig()
   createTray()
   createOverlay()
@@ -165,14 +168,16 @@ function updateTrayMenu() {
 }
 
 function createTray() {
-  const idleIcon = nativeImage.createFromPath(path.join(__dirname, 'assets', 'tray-idle.png'))
+  let idleIcon = nativeImage.createFromPath(path.join(__dirname, 'assets', 'tray-idle.png'))
+  idleIcon = idleIcon.resize({ width: 16, height: 16 })
   if (process.platform === 'darwin') idleIcon.setTemplateImage(true)
   tray = new Tray(idleIcon)
   updateTrayMenu()
 }
 
 function setTrayActive(active) {
-  const icon = nativeImage.createFromPath(path.join(__dirname, 'assets', active ? 'tray-active.png' : 'tray-idle.png'))
+  let icon = nativeImage.createFromPath(path.join(__dirname, 'assets', active ? 'tray-active.png' : 'tray-idle.png'))
+  icon = icon.resize({ width: 16, height: 16 })
   if (process.platform === 'darwin') icon.setTemplateImage(!active) // active = barevná, idle = template
   const shortcut = config.shortcut || 'Ctrl+Win'
   tray.setImage(icon)

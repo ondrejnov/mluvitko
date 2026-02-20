@@ -13,13 +13,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - arch: x64
-            runner: macos-13        # Intel runner – nativní x64 build
-          - arch: arm64
-            runner: macos-latest    # Apple Silicon runner – nativní arm64 build
+        arch: [x64, arm64]
 
-    runs-on: ${{ matrix.runner }}
+    runs-on: macos-latest
     name: macOS ${{ matrix.arch }}
 
     steps:

@@ -248,9 +248,23 @@
 
         const cfg = await ipcRenderer.invoke('get-config')
         const savedId = cfg.deviceId || ''
+        const isMac = process.platform === 'darwin'
+        const shortcutSelect = document.getElementById('shortcut-select')
+
+        if (isMac) {
+          const ctrlWinOption = shortcutSelect.querySelector('option[value="Ctrl+Win"]')
+          if (ctrlWinOption) {
+            ctrlWinOption.disabled = true
+            ctrlWinOption.textContent = 'Ctrl + Cmd (na macOS nepodporováno)'
+          }
+        }
+
         document.getElementById('open-at-login').checked = !!cfg.openAtLogin
         document.getElementById('lang-select').value = cfg.language || 'cs'
-        document.getElementById('shortcut-select').value = cfg.shortcut || 'Ctrl+Win'
+        const shortcutValue = isMac && (!cfg.shortcut || cfg.shortcut === 'Ctrl+Win')
+          ? 'F8'
+          : (cfg.shortcut || 'Ctrl+Win')
+        shortcutSelect.value = shortcutValue
         document.getElementById('api-key').value = cfg.apiKey || ''
 
         sel.innerHTML = ''

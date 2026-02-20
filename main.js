@@ -22,7 +22,8 @@ let isRecording = false
 let isStartingRecording = false
 let config = { deviceId: null, openAtLogin: false, language: 'cs', shortcut: 'Ctrl+Win', apiKey: '' }
 let savedVolume = null
-let hasShownAccessibilityHint = false
+let isUiohookStarted = false
+let lastGlobalShortcutToggleAt = 0
 
 // Uloží aktuální hlasitost a sníží na 5 %
 async function volGetAndSet5() {
@@ -64,6 +65,12 @@ function loadConfig() {
   try {
     if (fs.existsSync(configPath)) config = { ...config, ...JSON.parse(fs.readFileSync(configPath, 'utf8')) }
   } catch (e) { /* ignore */ }
+
+  if (process.platform === 'darwin' && config.shortcut === 'Ctrl+Win') {
+    config.shortcut = 'F8'
+    saveConfig()
+  }
+
   applyLoginSettings()
 }
 
@@ -174,13 +181,14 @@ app.on('will-quit', () => globalShortcut.unregisterAll())
 // ─── Tray ────────────────────────────────────────────────────────────────────
 function updateTrayMenu() {
   const shortcut = config.shortcut || 'Ctrl+Win'
-  tray.setToolTip(`Mluvítko – drž ${shortcut} pro nahrávání`)
+  const actionLabel = process.platform === 'darwin' ? 'stiskni' : 'drž'
+  tray.setToolTip(`Mluvítko – ${actionLabel} ${shortcut} pro nahrávání`)
 
   const { Menu } = require('electron')
   const menuTemplate = [
     { label: 'Mluvítko', enabled: false },
     { type: 'separator' },
-    { label: `Hotkey: ${shortcut} (držet)`, enabled: false },
+    { label: `Hotkey: ${shortcut} (${process.platform === 'darwin' ? 'přepínač' : 'držet'})`, enabled: false },
     { type: 'separator' }
   ]
 
@@ -216,7 +224,8 @@ function setTrayActive(active) {
   let icon = nativeImage.createFromPath(path.join(__dirname, 'assets', active ? 'tray-active.png' : 'tray-idle.png'))
   const shortcut = config.shortcut || 'Ctrl+Win'
   tray.setImage(icon)
-  tray.setToolTip(active ? '🔴 Nahrávám...' : `Mluvítko – drž ${shortcut} pro nahrávání`)
+  const actionLabel = process.platform === 'darwin' ? 'stiskni' : 'drž'
+  tray.setToolTip(active ? '🔴 Nahrávám...' : `Mluvítko – ${actionLabel} ${shortcut} pro nahrávání`)
 }
 
 // ─── Overlay okno ────────────────────────────────────────────────────────────
@@ -407,41 +416,15 @@ function normalizeKey(keycode) {
 }
 
 function registerHotkey() {
+  if (process.platform === 'darwin') {
+    registerMacGlobalShortcut()
+    return
+  }
+
   try {
-    if (process.platform === 'darwin') {
-      let isTrusted = true
-      try {
-        isTrusted = systemPreferences.isTrustedAccessibilityClient(false)
-      } catch (accessErr) {
-        console.error('Chyba při kontrole Accessibility oprávnění:', accessErr)
-      }
-
-      if (!isTrusted) {
-        if (!hasShownAccessibilityHint) {
-          hasShownAccessibilityHint = true
-          dialog.showMessageBox({
-            type: 'warning',
-            title: 'Povolení klávesnice',
-            message: 'Mluvítko potřebuje oprávnění Ovládání (Accessibility) pro globální hotkey.',
-            detail: 'Otevřete Nastavení systému → Soukromí a zabezpečení → Ovládání a povolte Mluvítko.',
-            buttons: ['Otevřít nastavení', 'Později'],
-            defaultId: 0,
-            cancelId: 1
-          }).then(async (res) => {
-            if (res.response === 0) {
-              try {
-                await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility')
-              } catch (openErr) {
-                console.error('Nelze otevřít stránku Ovládání v nastavení systému:', openErr)
-              }
-            }
-          })
-        }
-        return
-      }
-    }
-
     const { uIOhook } = require('uiohook-napi')
+
+    if (isUiohookStarted) return
 
     uIOhook.on('keydown', (e) => {
       activeKeys.add(normalizeKey(e.keycode))
@@ -462,10 +445,60 @@ function registerHotkey() {
     })
 
     uIOhook.start()
+    isUiohookStarted = true
     console.log('Hotkey registrován (push-to-talk)')
   } catch (e) {
     console.error('Chyba při registraci hotkey (uiohook-napi):', e)
   }
+}
+
+function getMacAccelerator(shortcut) {
+  const map = {
+    'Ctrl+Space': 'Control+Space',
+    'Alt+Space': 'Alt+Space',
+    'Shift+Space': 'Shift+Space',
+    'F8': 'F8',
+    'F9': 'F9',
+    'F10': 'F10',
+    'F12': 'F12'
+  }
+  return map[shortcut] || null
+}
+
+function registerMacGlobalShortcut() {
+  globalShortcut.unregisterAll()
+
+  let shortcut = config.shortcut || 'F8'
+  let accelerator = getMacAccelerator(shortcut)
+
+  if (!accelerator) {
+    shortcut = 'F8'
+    config.shortcut = shortcut
+    saveConfig()
+    accelerator = getMacAccelerator(shortcut)
+  }
+
+  const ok = globalShortcut.register(accelerator, () => {
+    const now = Date.now()
+    if (now - lastGlobalShortcutToggleAt < 250) return
+    lastGlobalShortcutToggleAt = now
+
+    if (isRecording || isStartingRecording) {
+      stopAndSend()
+    } else {
+      startRecording()
+    }
+  })
+
+  if (!ok) {
+    tray.setToolTip('❌ Nelze registrovat hotkey. Změň zkratku v Nastavení.')
+    setTimeout(() => updateTrayMenu(), 3000)
+    console.error('Nelze registrovat macOS hotkey:', accelerator)
+    return
+  }
+
+  updateTrayMenu()
+  console.log('Hotkey registrován (macOS toggle):', accelerator)
 }
 
 // ─── Nahrávání ───────────────────────────────────────────────────────────────
@@ -532,9 +565,19 @@ async function stopAndSend() {
 ipcMain.handle('get-config', () => config)
 ipcMain.handle('save-settings', (event, newConfig) => {
   config = { ...config, ...newConfig }
+
+  if (process.platform === 'darwin' && config.shortcut === 'Ctrl+Win') {
+    config.shortcut = 'F8'
+  }
+
   saveConfig()
   applyLoginSettings()
   updateTrayMenu()
+
+  if (process.platform === 'darwin') {
+    registerMacGlobalShortcut()
+  }
+
   if (recorderWindow && !recorderWindow.isDestroyed()) {
     recorderWindow.webContents.send('set-device', config.deviceId)
   }
@@ -602,7 +645,7 @@ ipcMain.on('audio-data', async (event, arrayBuffer) => {
     console.error('Chyba při transkripci:', err.message)
     // Zobraz chybu v tray tooltipu na 3s
     tray.setToolTip(`❌ Chyba: ${err.message}`)
-    setTimeout(() => tray.setToolTip('Mluvítko – drž Ctrl+Win pro nahrávání'), 3000)
+    setTimeout(() => updateTrayMenu(), 3000)
   } finally {
     try {
       if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath)

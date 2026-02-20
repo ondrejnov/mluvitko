@@ -422,6 +422,7 @@ function getTargetKeys() {
   const map = {
     'Ctrl+Win': [UiohookKey.Ctrl, UiohookKey.Meta],
     'Ctrl+Space': [UiohookKey.Ctrl, UiohookKey.Space],
+    'Ctrl+M': [UiohookKey.Ctrl, UiohookKey.M],
     'Alt+Space': [UiohookKey.Alt, UiohookKey.Space],
     'Shift+Space': [UiohookKey.Shift, UiohookKey.Space],
     'F8': [UiohookKey.F8],

@@ -201,6 +201,7 @@
         <select id="shortcut-select">
           <option value="Ctrl+Win">Ctrl + Win / Cmd</option>
           <option value="Ctrl+Space">Ctrl + Mezerník</option>
+          <option value="Ctrl+M">Ctrl + M</option>
           <option value="Alt+Space">Alt / Option + Mezerník</option>
           <option value="Shift+Space">Shift + Mezerník</option>
           <option value="F8">F8</option>
@@ -254,8 +255,7 @@
         if (isMac) {
           const ctrlWinOption = shortcutSelect.querySelector('option[value="Ctrl+Win"]')
           if (ctrlWinOption) {
-            ctrlWinOption.disabled = true
-            ctrlWinOption.textContent = 'Ctrl + Cmd (na macOS nepodporováno)'
+            ctrlWinOption.textContent = 'Ctrl + Cmd'
           }
         }
 

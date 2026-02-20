@@ -47,6 +47,37 @@ async function volRestore() {
 }
 
 // ─── Config ──────────────────────────────────────────────────────────────────
+async function openMacAccessibilitySettings() {
+  if (process.platform !== 'darwin') return
+
+  const targets = [
+    'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility',
+    'x-apple.systempreferences:com.apple.preference.security'
+  ]
+
+  for (const target of targets) {
+    try {
+      await shell.openExternal(target)
+      return
+    } catch (e) {
+      console.warn(`Nepodařilo se otevřít ${target}:`, e.message)
+    }
+  }
+
+  try {
+    const openPathError = await shell.openPath('/System/Library/PreferencePanes/Security.prefPane')
+    if (!openPathError) return
+    console.warn('shell.openPath vrátil chybu:', openPathError)
+  } catch (e) {
+    console.warn('Nepodařilo se otevřít Security.prefPane:', e.message)
+  }
+
+  dialog.showErrorBox(
+    'Nelze otevřít nastavení',
+    'Nastavení se nepodařilo otevřít automaticky. Otevřete ručně: Nastavení systému -> Soukromí a zabezpečení -> Zpřístupnění.'
+  )
+}
+
 function checkMacAccessibility(manual = false) {
   if (process.platform === 'darwin') {
     const isTrusted = systemPreferences.isTrustedAccessibilityClient(false)
@@ -59,7 +90,7 @@ function checkMacAccessibility(manual = false) {
         buttons: ['Otevřít nastavení', 'Zrušit']
       }).then(({ response }) => {
         if (response === 0) {
-          shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility')
+          void openMacAccessibilitySettings()
         }
       })
     } else if (manual) {
@@ -70,7 +101,7 @@ function checkMacAccessibility(manual = false) {
         buttons: ['Otevřít nastavení', 'OK']
       }).then(({ response }) => {
         if (response === 0) {
-          shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility')
+          void openMacAccessibilitySettings()
         }
       })
     }
@@ -120,8 +151,12 @@ app.whenReady().then(() => {
 
   // Počkej až jsou okna ready, pak registruj hotkey
   setTimeout(() => {
-    checkMacAccessibility()
-    registerHotkey()
+    const accessibilityOk = checkMacAccessibility()
+    if (accessibilityOk) {
+      registerHotkey()
+    } else {
+      console.warn('Hotkey neregistrován: chybí oprávnění Accessibility.')
+    }
   }, 1000)
 
   // Zkontroluj aktualizace

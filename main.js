@@ -170,7 +170,6 @@ function updateTrayMenu() {
 function createTray() {
   let idleIcon = nativeImage.createFromPath(path.join(__dirname, 'assets', 'tray-idle.png'))
   idleIcon = idleIcon.resize({ width: 16, height: 16 })
-  if (process.platform === 'darwin') idleIcon.setTemplateImage(true)
   tray = new Tray(idleIcon)
   updateTrayMenu()
 }
@@ -178,7 +177,6 @@ function createTray() {
 function setTrayActive(active) {
   let icon = nativeImage.createFromPath(path.join(__dirname, 'assets', active ? 'tray-active.png' : 'tray-idle.png'))
   icon = icon.resize({ width: 16, height: 16 })
-  if (process.platform === 'darwin') icon.setTemplateImage(!active) // active = barevná, idle = template
   const shortcut = config.shortcut || 'Ctrl+Win'
   tray.setImage(icon)
   tray.setToolTip(active ? '🔴 Nahrávám...' : `Mluvítko – drž ${shortcut} pro nahrávání`)
@@ -375,6 +373,7 @@ function registerHotkey() {
   const { uIOhook } = require('uiohook-napi')
 
   uIOhook.on('keydown', (e) => {
+    console.log(e.keycode)
     activeKeys.add(normalizeKey(e.keycode))
     const targetKeys = getTargetKeys()
 
@@ -408,13 +407,13 @@ async function startRecording() {
   recorderWindow.webContents.send('start-recording')
 
   // Pořiď screenshot
-  try {
-    const screenshotPath = path.join(app.getPath('temp'), 'mluvitko-screenshot.png')
-    await screenshot({ filename: screenshotPath })
-    console.log(`Screenshot uložen: ${screenshotPath}`)
-  } catch (err) {
-    console.error('Chyba při pořizování screenshotu:', err)
-  }
+  // try {
+  //   const screenshotPath = path.join(app.getPath('temp'), 'mluvitko-screenshot.png')
+  //   await screenshot({ filename: screenshotPath })
+  //   console.log(`Screenshot uložen: ${screenshotPath}`)
+  // } catch (err) {
+  //   console.error('Chyba při pořizování screenshotu:', err)
+  // }
 }
 
 async function stopAndSend() {

@@ -1,5 +1,5 @@
 const { app, globalShortcut, Tray, BrowserWindow, ipcMain, clipboard, screen, nativeImage, dialog } = require('electron')
-const { autoUpdater } = require('electron-updater')
+//const { autoUpdater } = require('electron-updater')
 const path = require('path')
 const fetch = (...args) => import('node-fetch').then(({ default: f }) => f(...args))
 const fs = require('fs')
@@ -91,47 +91,47 @@ app.whenReady().then(() => {
   setTimeout(() => registerHotkey(), 1000)
 
   // Zkontroluj aktualizace
-  autoUpdater.checkForUpdatesAndNotify()
+  //autoUpdater.checkForUpdatesAndNotify()
 })
 
 // ─── Auto Updater Události ───────────────────────────────────────────────────
-autoUpdater.on('update-available', () => {
-  dialog.showMessageBox({
-    type: 'info',
-    title: 'Aktualizace k dispozici',
-    message: 'Nová verze aplikace je k dispozici. Stahuje se na pozadí...'
-  })
-})
+// autoUpdater.on('update-available', () => {
+//   dialog.showMessageBox({
+//     type: 'info',
+//     title: 'Aktualizace k dispozici',
+//     message: 'Nová verze aplikace je k dispozici. Stahuje se na pozadí...'
+//   })
+// })
 
-autoUpdater.on('update-not-available', () => {
-  if (isManualUpdateCheck) {
-    dialog.showMessageBox({
-      type: 'info',
-      title: 'Žádné aktualizace',
-      message: 'Máte nejnovější verzi aplikace.'
-    })
-    isManualUpdateCheck = false
-  }
-})
+// autoUpdater.on('update-not-available', () => {
+//   if (isManualUpdateCheck) {
+//     dialog.showMessageBox({
+//       type: 'info',
+//       title: 'Žádné aktualizace',
+//       message: 'Máte nejnovější verzi aplikace.'
+//     })
+//     isManualUpdateCheck = false
+//   }
+// })
 
-autoUpdater.on('update-downloaded', () => {
-  dialog.showMessageBox({
-    type: 'info',
-    title: 'Aktualizace připravena',
-    message: 'Aktualizace byla stažena. Aplikace se nyní restartuje a nainstaluje novou verzi.',
-    buttons: ['Restartovat']
-  }).then(() => {
-    autoUpdater.quitAndInstall()
-  })
-})
+// autoUpdater.on('update-downloaded', () => {
+//   dialog.showMessageBox({
+//     type: 'info',
+//     title: 'Aktualizace připravena',
+//     message: 'Aktualizace byla stažena. Aplikace se nyní restartuje a nainstaluje novou verzi.',
+//     buttons: ['Restartovat']
+//   }).then(() => {
+//     autoUpdater.quitAndInstall()
+//   })
+// })
 
-autoUpdater.on('error', (err) => {
-  console.error('Chyba při aktualizaci:', err)
-  if (isManualUpdateCheck) {
-    dialog.showErrorBox('Chyba aktualizace', 'Nepodařilo se zkontrolovat aktualizace. Zkontrolujte připojení k internetu.')
-    isManualUpdateCheck = false
-  }
-})
+// autoUpdater.on('error', (err) => {
+//   console.error('Chyba při aktualizaci:', err)
+//   if (isManualUpdateCheck) {
+//     dialog.showErrorBox('Chyba aktualizace', 'Nepodařilo se zkontrolovat aktualizace. Zkontrolujte připojení k internetu.')
+//     isManualUpdateCheck = false
+//   }
+// })
 
 app.on('window-all-closed', (e) => e.preventDefault()) // Tray app – nezavírat
 app.on('will-quit', () => globalShortcut.unregisterAll())
@@ -157,11 +157,11 @@ function updateTrayMenu() {
 
   menuTemplate.push(
     { type: 'separator' },
-    { label: 'Zkontrolovat aktualizace', click: () => {
-        isManualUpdateCheck = true
-        autoUpdater.checkForUpdatesAndNotify()
-      }
-    },
+    // { label: 'Zkontrolovat aktualizace', click: () => {
+    //     isManualUpdateCheck = true
+    //     autoUpdater.checkForUpdatesAndNotify()
+    //   }
+    // },
     { label: 'Nastavení...', click: () => openSettings() },
     { type: 'separator' },
     { label: 'Ukončit', click: () => app.exit(0) }

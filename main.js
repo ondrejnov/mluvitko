@@ -174,6 +174,9 @@ function updateTrayMenu() {
 function createTray() {
   let idleIcon = nativeImage.createFromPath(path.join(__dirname, 'assets', 'tray-idle.png'))
   idleIcon = idleIcon.resize({ width: 16, height: 16 })
+  if (process.platform === 'darwin') {
+    idleIcon.setTemplateImage(true)
+  }
   tray = new Tray(idleIcon)
   updateTrayMenu()
 }
@@ -181,6 +184,9 @@ function createTray() {
 function setTrayActive(active) {
   let icon = nativeImage.createFromPath(path.join(__dirname, 'assets', active ? 'tray-active.png' : 'tray-idle.png'))
   icon = icon.resize({ width: 16, height: 16 })
+  if (process.platform === 'darwin') {
+    icon.setTemplateImage(!active)
+  }
   const shortcut = config.shortcut || 'Ctrl+Win'
   tray.setImage(icon)
   tray.setToolTip(active ? '🔴 Nahrávám...' : `Mluvítko – drž ${shortcut} pro nahrávání`)

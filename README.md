@@ -1,6 +1,6 @@
 # 🎙 Mluvítko
 
-Push-to-talk hlasový vstup s AI transkripcí. Tento nástroj umožňuje snadné zadávání textu hlasem. Stačí stisknout a držet klávesovou zkratku **Ctrl+Win**, mluvit, a po uvolnění kláves se přepsaný text automaticky vloží do aktivního textového pole.
+Push-to-talk hlasový vstup s AI transkripcí. Tento nástroj umožňuje snadné zadávání textu hlasem. Stačí stisknout a držet klávesovou zkratku **Ctrl+Win** (na macOS **Ctrl+Cmd**), mluvit, a po uvolnění kláves se přepsaný text automaticky vloží do aktivního textového pole.
 
 Tento projekt je self-hosted alternativa k online službě [WisprFlow](https://wisprflow.ai/), kterou se inspiroval. Nabízí podobnou funkcionalitu, ale běží lokálně na vašem zařízení, což zajišťuje větší kontrolu nad daty a soukromím. Je zcela zdarma, s výjimkou případného poplatku za využití OpenAI transkripčního modelu, pokud je použit.
 
@@ -59,8 +59,8 @@ Pokud selže → ověř, že máš nainstalované Visual Studio Build Tools.
 
 1. Spusť aplikaci (`npm start`)
 2. V systray (vedle hodin) uvidíš ikonu 🎙
-3. **Drž Ctrl+Win** → červená tečka = nahrávám
-4. **Pusť Ctrl+Win** → modrý spinner = přepisuji, pak se text vloží do pole, kde byl kurzor
+3. **Drž Ctrl+Win** (na macOS **Ctrl+Cmd**) → červená tečka = nahrávám
+4. **Pusť zkratku** → modrý spinner = přepisuji, pak se text vloží do pole, kde byl kurzor
 
 > **Změna mikrofonu:** Klikni pravým na ikonu v systray → *Nastavení mikrofonu...*
 
@@ -77,8 +77,12 @@ npm run build:dir   # Rychlejší, bez instalátoru (rozbalená složka)
 
 ### Změna hotkey
 
-V `main.js` najdi `UiohookKey.` a změň na jiný klíč.
-Seznam kódů: https://github.com/FZKiritsugu/uiohook-napi#key-codes
+V aplikaci otevři **Nastavení → Klávesová zkratka**.
+
+Podporované zkratky:
+
+- **Windows / Linux:** `Ctrl+Win`, `Ctrl+Space`, `Ctrl+M`, `Alt+Space`, `Shift+Space`, `F8`, `F9`, `F10`, `F12`
+- **macOS:** `Ctrl+Cmd`, `Option+Space`, `Shift+Space`, `F8`, `F9`, `F10`, `F12`
 
 ---
 
@@ -109,7 +113,7 @@ voice-input/
 → Ujisti se, že build obsahuje `NSMicrophoneUsageDescription` v `Info.plist` (v tomto projektu je přes `build.mac.extendInfo` v `package.json`) a po změně proveď nový build (`npm run build:mac`).
 
 **Text se nevkládá:**
-→ Ujisti se, že kurzor je v textovém poli před stiskem Ctrl+Win
+→ Ujisti se, že kurzor je v textovém poli před stiskem zvolené zkratky
 
 **OpenAI API klíč není nastaven:**
 → Otevři nastavení aplikace a zadej svůj OpenAI API klíč.

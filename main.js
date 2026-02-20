@@ -22,6 +22,19 @@ let isRecording = false
 let config = { deviceId: null, openAtLogin: false, language: 'cs', shortcut: 'Ctrl+Win', apiKey: '' }
 let savedVolume = null
 
+const SUPPORTED_SHORTCUTS = process.platform === 'darwin'
+  ? ['Ctrl+Win', 'Alt+Space', 'Shift+Space', 'F8', 'F9', 'F10', 'F12']
+  : ['Ctrl+Win', 'Ctrl+Space', 'Ctrl+M', 'Alt+Space', 'Shift+Space', 'F8', 'F9', 'F10', 'F12']
+
+function getDefaultShortcut() {
+  return 'Ctrl+Win'
+}
+
+function getEffectiveShortcut(shortcut = config.shortcut) {
+  if (SUPPORTED_SHORTCUTS.includes(shortcut)) return shortcut
+  return getDefaultShortcut()
+}
+
 // Uloží aktuální hlasitost a sníží na 5 %
 async function volGetAndSet5() {
   try {
@@ -125,6 +138,7 @@ function loadConfig() {
   try {
     if (fs.existsSync(configPath)) config = { ...config, ...JSON.parse(fs.readFileSync(configPath, 'utf8')) }
   } catch (e) { /* ignore */ }
+  config.shortcut = getEffectiveShortcut(config.shortcut)
   applyLoginSettings()
 }
 
@@ -207,10 +221,10 @@ app.on('will-quit', () => globalShortcut.unregisterAll())
 
 // ─── Tray ────────────────────────────────────────────────────────────────────
 function getShortcutLabel() {
-  const shortcut = config.shortcut || 'Ctrl+Win'
+  const shortcut = getEffectiveShortcut()
   if (process.platform === 'darwin') {
     if (shortcut === 'Ctrl+Win') return 'Ctrl+Cmd'
-    if (shortcut === 'Ctrl+M') return 'Cmd+M'
+    if (shortcut === 'Alt+Space') return 'Option+Mezerník'
   }
   return shortcut
 }
@@ -431,9 +445,7 @@ function getTargetKeys() {
   const map = {
     'Ctrl+Win': [UiohookKey.Ctrl, UiohookKey.Meta],
     'Ctrl+Space': [UiohookKey.Ctrl, UiohookKey.Space],
-    'Ctrl+M': process.platform === 'darwin'
-      ? [UiohookKey.Meta, UiohookKey.M]
-      : [UiohookKey.Ctrl, UiohookKey.M],
+    'Ctrl+M': [UiohookKey.Ctrl, UiohookKey.M],
     'Cmd+M': [UiohookKey.Meta, UiohookKey.M],
     'Alt+Space': [UiohookKey.Alt, UiohookKey.Space],
     'Shift+Space': [UiohookKey.Shift, UiohookKey.Space],
@@ -442,7 +454,8 @@ function getTargetKeys() {
     'F10': [UiohookKey.F10],
     'F12': [UiohookKey.F12]
   }
-  return map[config.shortcut] || map['Ctrl+Win']
+  const shortcut = getEffectiveShortcut()
+  return map[shortcut] || map[getDefaultShortcut()]
 }
 
 function normalizeKey(keycode) {
@@ -522,6 +535,7 @@ async function stopAndSend() {
 ipcMain.handle('get-config', () => config)
 ipcMain.handle('save-settings', (event, newConfig) => {
   config = { ...config, ...newConfig }
+  config.shortcut = getEffectiveShortcut(config.shortcut)
   saveConfig()
   applyLoginSettings()
   updateTrayMenu()
@@ -592,7 +606,7 @@ ipcMain.on('audio-data', async (event, arrayBuffer) => {
     console.error('Chyba při transkripci:', err.message)
     // Zobraz chybu v tray tooltipu na 3s
     tray.setToolTip(`❌ Chyba: ${err.message}`)
-    setTimeout(() => tray.setToolTip('Mluvítko – drž Ctrl+Win pro nahrávání'), 3000)
+    setTimeout(() => tray.setToolTip(`Mluvítko – drž ${getShortcutLabel()} pro nahrávání`), 3000)
   } finally {
     try {
       if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath)

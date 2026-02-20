@@ -198,17 +198,7 @@
 
       <div class="row">
         <label for="shortcut-select">Klávesová zkratka</label>
-        <select id="shortcut-select">
-          <option value="Ctrl+Win">Ctrl + Win / Cmd</option>
-          <option value="Ctrl+Space">Ctrl + Mezerník</option>
-          <option value="Ctrl+M">Ctrl + M</option>
-          <option value="Alt+Space">Alt / Option + Mezerník</option>
-          <option value="Shift+Space">Shift + Mezerník</option>
-          <option value="F8">F8</option>
-          <option value="F9">F9</option>
-          <option value="F10">F10</option>
-          <option value="F12">F12</option>
-        </select>
+        <select id="shortcut-select"></select>
       </div>
 
       <div class="row">
@@ -237,6 +227,39 @@
     const sel = document.getElementById('mic-select')
     const status = document.getElementById('status')
     const btnSave = document.getElementById('btn-save')
+    const shortcutSelect = document.getElementById('shortcut-select')
+
+    const SHORTCUT_OPTIONS = [
+      { value: 'Ctrl+Win', label: 'Ctrl + Win', macLabel: 'Ctrl + Cmd', platforms: ['win32', 'linux', 'darwin'] },
+      { value: 'Ctrl+Space', label: 'Ctrl + Mezerník', platforms: ['win32', 'linux'] },
+      { value: 'Ctrl+M', label: 'Ctrl + M', platforms: ['win32', 'linux'] },
+      { value: 'Alt+Space', label: 'Alt + Mezerník', macLabel: 'Option + Mezerník', platforms: ['win32', 'linux', 'darwin'] },
+      { value: 'Shift+Space', label: 'Shift + Mezerník', platforms: ['win32', 'linux', 'darwin'] },
+      { value: 'F8', label: 'F8', platforms: ['win32', 'linux', 'darwin'] },
+      { value: 'F9', label: 'F9', platforms: ['win32', 'linux', 'darwin'] },
+      { value: 'F10', label: 'F10', platforms: ['win32', 'linux', 'darwin'] },
+      { value: 'F12', label: 'F12', platforms: ['win32', 'linux', 'darwin'] }
+    ]
+
+    function getShortcutOptions() {
+      return SHORTCUT_OPTIONS.filter(option => option.platforms.includes(process.platform))
+    }
+
+    function renderShortcutOptions(selectedValue) {
+      const isMac = process.platform === 'darwin'
+      const options = getShortcutOptions()
+      const fallbackValue = options[0]?.value || 'Ctrl+Win'
+      const targetValue = options.some(option => option.value === selectedValue) ? selectedValue : fallbackValue
+
+      shortcutSelect.innerHTML = ''
+      options.forEach(option => {
+        const element = document.createElement('option')
+        element.value = option.value
+        element.textContent = isMac ? (option.macLabel || option.label) : option.label
+        element.selected = option.value === targetValue
+        shortcutSelect.appendChild(element)
+      })
+    }
 
     async function loadDevices() {
       try {
@@ -249,26 +272,10 @@
 
         const cfg = await ipcRenderer.invoke('get-config')
         const savedId = cfg.deviceId || ''
-        const isMac = process.platform === 'darwin'
-        const shortcutSelect = document.getElementById('shortcut-select')
-
-        if (isMac) {
-          const ctrlWinOption = shortcutSelect.querySelector('option[value="Ctrl+Win"]')
-          if (ctrlWinOption) {
-            ctrlWinOption.textContent = 'Ctrl + Cmd'
-          }
-          const ctrlMOption = shortcutSelect.querySelector('option[value="Ctrl+M"]')
-          if (ctrlMOption) {
-            ctrlMOption.textContent = 'Cmd + M'
-          }
-        }
 
         document.getElementById('open-at-login').checked = !!cfg.openAtLogin
         document.getElementById('lang-select').value = cfg.language || 'cs'
-        const shortcutValue = isMac && (!cfg.shortcut || cfg.shortcut === 'Ctrl+Win')
-          ? 'F8'
-          : (cfg.shortcut || 'Ctrl+Win')
-        shortcutSelect.value = shortcutValue
+        renderShortcutOptions(cfg.shortcut || 'Ctrl+Win')
         document.getElementById('api-key').value = cfg.apiKey || ''
 
         sel.innerHTML = ''

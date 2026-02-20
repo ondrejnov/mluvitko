@@ -97,10 +97,6 @@ voice-input/
 │   └── icon.ico         ← Ikona aplikace
 ```
 
-Pokud chcete vytvořit vlastní backend pro transkripci, podívejte se na [návod od OpenAI](https://developers.openai.com/api/docs/guides/speech-to-text).
-
----
-
 ## Řešení problémů
 
 **`npm install` selže na robotjs/uiohook:**
@@ -112,8 +108,8 @@ Pokud chcete vytvořit vlastní backend pro transkripci, podívejte se na [návo
 **Text se nevkládá:**
 → Ujisti se, že kurzor je v textovém poli před stiskem Ctrl+Win
 
-**Backend není dostupný:**
-→ Aplikace se připojuje na vzdálený backend (hardcoded adresa v `main.js`). Zkontroluj, že je server dostupný, nebo uprav URL přímo v `main.js`.
+**OpenAI API klíč není nastaven:**
+→ Otevři nastavení aplikace a zadej svůj OpenAI API klíč.
 
 ---
 

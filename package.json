@@ -7,13 +7,18 @@
   "scripts": {
     "start": "electron .",
     "build": "electron-builder --win",
-    "build:dir": "electron-builder --win --dir"
+    "build:dir": "electron-builder --win --dir",
+    "build:mac": "electron-builder --mac",
+    "build:mac:dir": "electron-builder --mac --dir"
   },
   "dependencies": {
     "@jitsi/robotjs": "^0.6.0",
+    "electron-updater": "^6.8.3",
     "form-data": "^4.0.0",
     "loudness": "^0.4.2",
     "node-fetch": "^3.3.2",
+    "openai": "^6.22.0",
+    "screenshot-desktop": "^1.15.3",
     "uiohook-napi": "^1.5.3"
   },
   "devDependencies": {
@@ -35,18 +40,57 @@
       ],
       "icon": "assets/icon.ico"
     },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.icns",
+      "category": "public.app-category.utilities",
+      "entitlements": "entitlements.mac.plist",
+      "entitlementsInherit": "entitlements.mac.plist",
+      "hardenedRuntime": true
+    },
+    "dmg": {
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    },
     "nsis": {
       "oneClick": true,
       "runAfterFinish": true
     },
     "files": [
       "main.js",
+      "auth.js",
       "overlay.html",
       "recorder.html",
       "settings.html",
+      "account.html",
       "assets/**"
     ],
     "extraResources": [],
-    "asar": true
+    "asar": true,
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "VASE_GITHUB_JMENO",
+        "repo": "VASE_GITHUB_REPOZITAR"
+      }
+    ]
   }
 }

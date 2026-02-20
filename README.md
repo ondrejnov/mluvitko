@@ -105,6 +105,9 @@ voice-input/
 **Mikrofon nefunguje:**
 → Zkontroluj oprávnění mikrofonu: Nastavení Windows → Soukromí → Mikrofon
 
+**macOS build padá při nahrávání:**
+→ Ujisti se, že build obsahuje `NSMicrophoneUsageDescription` v `Info.plist` (v tomto projektu je přes `build.mac.extendInfo` v `package.json`) a po změně proveď nový build (`npm run build:mac`).
+
 **Text se nevkládá:**
 → Ujisti se, že kurzor je v textovém poli před stiskem Ctrl+Win
 

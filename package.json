@@ -29,69 +29,17 @@
     "appId": "com.mluvitko.app",
     "productName": "Mluvítko",
     "copyright": "MIT",
-    "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        }
-      ],
-      "icon": "assets/icon.ico"
-    },
     "mac": {
-      "target": [
-        {
-          "target": "dmg",
-          "arch": [
-            "arm64"
-          ]
-        }
-      ],
       "icon": "assets/icon512.png",
-      "category": "public.app-category.utilities",
       "entitlements": "entitlements.mac.plist",
       "entitlementsInherit": "entitlements.mac.plist",
-      "hardenedRuntime": true,
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "Mluvítko potřebuje přístup k mikrofonu pro hlasové nahrávání a přepis."
+        "NSMicrophoneUsageDescription": "Mluvítko potřebuje přístup k mikrofonu pro nahrávání hlasu a přepis řeči na text."
       }
     },
-    "dmg": {
-      "contents": [
-        {
-          "x": 130,
-          "y": 220
-        },
-        {
-          "x": 410,
-          "y": 220,
-          "type": "link",
-          "path": "/Applications"
-        }
-      ]
+    "win": {
+      "icon": "assets/icon.ico"
     },
-    "nsis": {
-      "oneClick": true,
-      "runAfterFinish": true
-    },
-    "files": [
-      "main.js",
-      "auth.js",
-      "overlay.html",
-      "recorder.html",
-      "settings.html",
-      "account.html",
-      "assets/**",
-      "package.json",
-      "node_modules/**"
-    ],
-    "extraResources": [],
-    "asar": true,
-    "asarUnpack": [
-      "**/*.node"
-    ],
     "publish": [
       {
         "provider": "github",

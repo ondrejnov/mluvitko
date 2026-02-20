@@ -1,4 +1,4 @@
-const { app, globalShortcut, Tray, BrowserWindow, ipcMain, clipboard, screen, nativeImage, dialog } = require('electron')
+const { app, globalShortcut, Tray, BrowserWindow, ipcMain, clipboard, screen, nativeImage, dialog, systemPreferences, shell } = require('electron')
 //const { autoUpdater } = require('electron-updater')
 const path = require('path')
 const fetch = (...args) => import('node-fetch').then(({ default: f }) => f(...args))
@@ -70,10 +70,45 @@ function saveConfig() {
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2))
 }
 
+async function ensureMicrophoneAccess(showSettingsHint = true) {
+  if (process.platform !== 'darwin') return true
+
+  try {
+    let status = systemPreferences.getMediaAccessStatus('microphone')
+    if (status === 'granted') return true
+
+    if (status === 'not-determined') {
+      const granted = await systemPreferences.askForMediaAccess('microphone')
+      if (granted) return true
+      status = systemPreferences.getMediaAccessStatus('microphone')
+    }
+
+    if (showSettingsHint) {
+      const result = await dialog.showMessageBox({
+        type: 'warning',
+        title: 'Povolení mikrofonu',
+        message: 'Mluvítko potřebuje přístup k mikrofonu.',
+        detail: 'V macOS otevřete Nastavení systému → Soukromí a zabezpečení → Mikrofon a povolte Mluvítko.',
+        buttons: ['Otevřít nastavení', 'Později'],
+        defaultId: 0,
+        cancelId: 1
+      })
+
+      if (result.response === 0) {
+        await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone')
+      }
+    }
+  } catch (e) {
+    console.error('Chyba při získávání oprávnění k mikrofonu:', e)
+  }
+
+  return false
+}
+
 // ─── App ready ───────────────────────────────────────────────────────────────
 let isManualUpdateCheck = false
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   if (process.platform === 'darwin' && !app.isPackaged) {
     try {
       app.dock.setIcon(nativeImage.createFromPath(path.join(__dirname, 'assets', 'icon.png')))
@@ -81,6 +116,7 @@ app.whenReady().then(() => {
       console.error('Chyba při nastavení dock ikony:', e)
     }
   }
+  await ensureMicrophoneAccess(true)
   loadConfig()
   createTray()
   createOverlay()
@@ -403,6 +439,13 @@ function registerHotkey() {
 
 // ─── Nahrávání ───────────────────────────────────────────────────────────────
 async function startRecording() {
+  const hasMicrophoneAccess = await ensureMicrophoneAccess(false)
+  if (!hasMicrophoneAccess) {
+    tray.setToolTip('❌ Mikrofon není povolen. Otevři Nastavení systému → Mikrofon.')
+    setTimeout(() => updateTrayMenu(), 3000)
+    return
+  }
+
   console.log('▶ Start nahrávání')
   savedVolume = await volGetAndSet5()  // Sníž hlasitost PC na 10 %
   setTrayActive(true)

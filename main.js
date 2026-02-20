@@ -206,8 +206,17 @@ app.on('window-all-closed', (e) => e.preventDefault()) // Tray app – nezavíra
 app.on('will-quit', () => globalShortcut.unregisterAll())
 
 // ─── Tray ────────────────────────────────────────────────────────────────────
-function updateTrayMenu() {
+function getShortcutLabel() {
   const shortcut = config.shortcut || 'Ctrl+Win'
+  if (process.platform === 'darwin') {
+    if (shortcut === 'Ctrl+Win') return 'Ctrl+Cmd'
+    if (shortcut === 'Ctrl+M') return 'Cmd+M'
+  }
+  return shortcut
+}
+
+function updateTrayMenu() {
+  const shortcut = getShortcutLabel()
   tray.setToolTip(`Mluvítko – drž ${shortcut} pro nahrávání`)
 
   const { Menu } = require('electron')
@@ -249,7 +258,7 @@ function createTray() {
 
 function setTrayActive(active) {
   let icon = nativeImage.createFromPath(path.join(__dirname, 'assets', active ? 'tray-active.png' : 'tray-idle.png'))
-  const shortcut = config.shortcut || 'Ctrl+Win'
+  const shortcut = getShortcutLabel()
   tray.setImage(icon)
   tray.setToolTip(active ? '🔴 Nahrávám...' : `Mluvítko – drž ${shortcut} pro nahrávání`)
 }
@@ -422,7 +431,10 @@ function getTargetKeys() {
   const map = {
     'Ctrl+Win': [UiohookKey.Ctrl, UiohookKey.Meta],
     'Ctrl+Space': [UiohookKey.Ctrl, UiohookKey.Space],
-    'Ctrl+M': [UiohookKey.Ctrl, UiohookKey.M],
+    'Ctrl+M': process.platform === 'darwin'
+      ? [UiohookKey.Meta, UiohookKey.M]
+      : [UiohookKey.Ctrl, UiohookKey.M],
+    'Cmd+M': [UiohookKey.Meta, UiohookKey.M],
     'Alt+Space': [UiohookKey.Alt, UiohookKey.Space],
     'Shift+Space': [UiohookKey.Shift, UiohookKey.Space],
     'F8': [UiohookKey.F8],

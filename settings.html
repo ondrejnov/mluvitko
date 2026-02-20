@@ -257,6 +257,10 @@
           if (ctrlWinOption) {
             ctrlWinOption.textContent = 'Ctrl + Cmd'
           }
+          const ctrlMOption = shortcutSelect.querySelector('option[value="Ctrl+M"]')
+          if (ctrlMOption) {
+            ctrlMOption.textContent = 'Cmd + M'
+          }
         }
 
         document.getElementById('open-at-login').checked = !!cfg.openAtLogin

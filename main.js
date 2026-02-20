@@ -4,8 +4,7 @@ const path = require('path')
 const fetch = (...args) => import('node-fetch').then(({ default: f }) => f(...args))
 const fs = require('fs')
 const loudness = require('loudness')
-const screenshot = require('screenshot-desktop')
-const { loginWithGoogle } = require('./auth')
+//const { loginWithGoogle } = require('./auth')
 const { OpenAI } = require('openai')
 
 // Fix for OpenAI file uploads in older Node/Electron versions
@@ -272,18 +271,18 @@ function openAccount() {
 }
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
-async function handleLogin() {
-  try {
-    const tokenData = await loginWithGoogle()
-    if (tokenData.id_token) {
-      await authenticateWithBackend(tokenData.id_token)
-    }
-  } catch (err) {
-    console.error('Chyba přihlášení:', err)
-    tray.setToolTip(`❌ Chyba přihlášení: ${err.message}`)
-    setTimeout(() => updateTrayMenu(), 3000)
-  }
-}
+// async function handleLogin() {
+//   try {
+//     const tokenData = await loginWithGoogle()
+//     if (tokenData.id_token) {
+//       await authenticateWithBackend(tokenData.id_token)
+//     }
+//   } catch (err) {
+//     console.error('Chyba přihlášení:', err)
+//     tray.setToolTip(`❌ Chyba přihlášení: ${err.message}`)
+//     setTimeout(() => updateTrayMenu(), 3000)
+//   }
+// }
 
 async function authenticateWithBackend(idToken) {
   try {
@@ -449,8 +448,8 @@ ipcMain.handle('save-settings', (event, newConfig) => {
 
 // ─── IPC: účet ──────────────────────────────────────────────────────────────
 ipcMain.handle('get-user', () => config.user)
-ipcMain.handle('login', () => handleLogin())
-ipcMain.handle('logout', () => handleLogout())
+//ipcMain.handle('login', () => handleLogin())
+//ipcMain.handle('logout', () => handleLogout())
 
 // ─── IPC: přijmi audio z recorder.html ───────────────────────────────────────
 

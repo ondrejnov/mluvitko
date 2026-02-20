@@ -22,8 +22,8 @@
     "uiohook-napi": "^1.5.3"
   },
   "devDependencies": {
-    "electron": "^28.3.0",
-    "electron-builder": "^24.9.1"
+    "electron": "^40.6.0",
+    "electron-builder": "^26.8.1"
   },
   "build": {
     "appId": "com.mluvitko.app",
@@ -45,7 +45,6 @@
         {
           "target": "dmg",
           "arch": [
-            "x64",
             "arm64"
           ]
         }
@@ -54,7 +53,10 @@
       "category": "public.app-category.utilities",
       "entitlements": "entitlements.mac.plist",
       "entitlementsInherit": "entitlements.mac.plist",
-      "hardenedRuntime": true
+      "hardenedRuntime": true,
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Mluvítko potřebuje přístup k mikrofonu pro hlasové nahrávání a přepis." 
+      }
     },
     "dmg": {
       "contents": [
@@ -81,7 +83,9 @@
       "recorder.html",
       "settings.html",
       "account.html",
-      "assets/**"
+      "assets/**",
+      "package.json",
+      "node_modules/**"
     ],
     "extraResources": [],
     "asar": true,

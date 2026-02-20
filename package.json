@@ -88,8 +88,8 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "VASE_GITHUB_JMENO",
-        "repo": "VASE_GITHUB_REPOZITAR"
+        "owner": "ondrejnov",
+        "repo": "mluvitko"
       }
     ]
   }

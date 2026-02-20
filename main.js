@@ -173,20 +173,12 @@ function updateTrayMenu() {
 
 function createTray() {
   let idleIcon = nativeImage.createFromPath(path.join(__dirname, 'assets', 'tray-idle.png'))
-  idleIcon = idleIcon.resize({ width: 16, height: 16 })
-  if (process.platform === 'darwin') {
-    idleIcon.setTemplateImage(true)
-  }
   tray = new Tray(idleIcon)
   updateTrayMenu()
 }
 
 function setTrayActive(active) {
   let icon = nativeImage.createFromPath(path.join(__dirname, 'assets', active ? 'tray-active.png' : 'tray-idle.png'))
-  icon = icon.resize({ width: 16, height: 16 })
-  if (process.platform === 'darwin') {
-    icon.setTemplateImage(!active)
-  }
   const shortcut = config.shortcut || 'Ctrl+Win'
   tray.setImage(icon)
   tray.setToolTip(active ? '🔴 Nahrávám...' : `Mluvítko – drž ${shortcut} pro nahrávání`)
@@ -380,30 +372,34 @@ function normalizeKey(keycode) {
 }
 
 function registerHotkey() {
-  const { uIOhook } = require('uiohook-napi')
+  try {
+    const { uIOhook } = require('uiohook-napi')
 
-  uIOhook.on('keydown', (e) => {
-    activeKeys.add(normalizeKey(e.keycode))
-    const targetKeys = getTargetKeys()
+    uIOhook.on('keydown', (e) => {
+      activeKeys.add(normalizeKey(e.keycode))
+      const targetKeys = getTargetKeys()
 
-    if (targetKeys.every(k => activeKeys.has(k)) && !isRecording) {
-      isRecording = true
-      startRecording()
-    }
-  })
+      if (targetKeys.every(k => activeKeys.has(k)) && !isRecording) {
+        isRecording = true
+        startRecording()
+      }
+    })
 
-  uIOhook.on('keyup', (e) => {
-    activeKeys.delete(normalizeKey(e.keycode))
-    const targetKeys = getTargetKeys()
+    uIOhook.on('keyup', (e) => {
+      activeKeys.delete(normalizeKey(e.keycode))
+      const targetKeys = getTargetKeys()
 
-    if (!targetKeys.every(k => activeKeys.has(k)) && isRecording) {
-      isRecording = false
-      stopAndSend()
-    }
-  })
+      if (!targetKeys.every(k => activeKeys.has(k)) && isRecording) {
+        isRecording = false
+        stopAndSend()
+      }
+    })
 
-  uIOhook.start()
-  console.log('Hotkey registrován (push-to-talk)')
+    uIOhook.start()
+    console.log('Hotkey registrován (push-to-talk)')
+  } catch (e) {
+    console.error('Chyba při registraci hotkey (uiohook-napi):', e)
+  }
 }
 
 // ─── Nahrávání ───────────────────────────────────────────────────────────────
@@ -411,7 +407,11 @@ async function startRecording() {
   console.log('▶ Start nahrávání')
   savedVolume = await volGetAndSet5()  // Sníž hlasitost PC na 10 %
   setTrayActive(true)
-  overlayWindow.show()
+  if (process.platform === 'darwin') {
+    overlayWindow.showInactive() // Na macOS show() krade focus, showInactive() ne
+  } else {
+    overlayWindow.show()
+  }
   overlayWindow.webContents.send('recording-start')
   recorderWindow.webContents.send('start-recording')
 
@@ -453,7 +453,6 @@ ipcMain.handle('login', () => handleLogin())
 ipcMain.handle('logout', () => handleLogout())
 
 // ─── IPC: přijmi audio z recorder.html ───────────────────────────────────────
-const robot = require('@jitsi/robotjs')
 
 ipcMain.on('audio-data', async (event, arrayBuffer) => {
   // Přepni overlay do stavu "zpracovávám" – neztrácíme focus na inputu
@@ -471,13 +470,14 @@ ipcMain.on('audio-data', async (event, arrayBuffer) => {
     }
     const openai = new OpenAI({ apiKey: config.apiKey })
 
-    const transcription = await openai.audio.transcriptions.create({
-      model: 'gpt-4o-transcribe',
-      file: fs.createReadStream(tempPath),
-      prompt: 'The following conversation is about frontend and backend programming.',
-      language: config.language && config.language !== 'auto' ? config.language : undefined
-    })
+    // const transcription = await openai.audio.transcriptions.create({
+    //   model: 'gpt-4o-transcribe',
+    //   file: fs.createReadStream(tempPath),
+    //   prompt: 'The following conversation is about frontend and backend programming.',
+    //   language: config.language && config.language !== 'auto' ? config.language : undefined
+    // })
 
+    const transcription = {text: 'Toto je testovací transkripce. Nahrajte skutečné audio pro reálný výsledek.'} // Fallback pro testování bez API
     const text = transcription.text
     console.log('Transkripce:', text)
 
@@ -491,7 +491,12 @@ ipcMain.on('audio-data', async (event, arrayBuffer) => {
       // Vlož text přes schránku + Ctrl+V
       const prevClipboard = clipboard.readText()
       clipboard.writeText(text.trim())
-      robot.keyTap('v', process.platform === 'darwin' ? ['command'] : ['control'])
+      try {
+        const robot = require('@jitsi/robotjs')
+        robot.keyTap('v', process.platform === 'darwin' ? ['command'] : ['control'])
+      } catch (e) {
+        console.error('Chyba při vkládání textu (robotjs):', e)
+      }
 
       // Obnov původní obsah schránky po malém zpoždění
       setTimeout(() => clipboard.writeText(prevClipboard), 500)

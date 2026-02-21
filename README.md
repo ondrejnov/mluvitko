@@ -24,9 +24,16 @@ Aplikace poskytuje jednoduché a intuitivní uživatelské rozhraní:
    - Kliknutím pravým tlačítkem na ikonu v systray lze otevřít nabídku s možností změny mikrofonu.
 
 4. **Automatické ztlumení zvuku:**
-   - Během nahrávání se systémová hlasitost automaticky sníží na 10 %, aby se předešlo zpětné vazbě z mikrofonu. Po ukončení nahrávání se hlasitost obnoví na původní úroveň.
+   - Během nahrávání se systémová hlasitost automaticky sníží na 5 %, aby se předešlo zpětné vazbě z mikrofonu. Po ukončení nahrávání se hlasitost obnoví na původní úroveň.
 
-Toto rozhraní je navrženo tak, aby bylo nenápadné a nerušilo uživatele během práce.
+5. **👁️ Dejte své AI oči (Screenshot jako kontext):**
+   - **Co to umí:** Tato funkce umožňuje aplikaci lépe pochopit, co právě děláte. Spolu s vaším hlasovým povelem dokáže aplikace pořídit snímek obrazovky a použít jej jako kontext pro lokální AI model. To znamená, že AI může lépe porozumět tomu, co máte otevřené, a přizpůsobit odpovědi vašemu aktuálnímu prostředí.
+   - **Jak to funguje:** Během diktování se na pozadí bleskově a bezpečně vyfotí vaše aktuální obrazovka. Tento snímek se spojí s vaším hlasovým dotazem a odešle se do lokálního AI modelu, který jej využije jako doplňkový kontext. AI tak může lépe pochopit, co právě děláte, a nabídnout relevantní odpovědi.
+   - **K čemu je to dobré (Příklady z praxe):**
+     - 💻 *Vývojáři:* "Jaký je význam této chybové hlášky?" nebo "Jaký kód by odpovídal tomuto designu?"
+     - 📊 *Analytici:* "Co znamenají tyto hodnoty v grafu?"
+     - 🌍 *Každodenní práce:* "Jak odpovědět na tento e-mail?" nebo "Co znamená tento text na obrazovce?"
+   - **Jak to nastavit:** V nastavení aplikace (Settings) jednoduše zaškrtněte volbu pro odesílání snímků obrazovky. Funkce je optimalizována pro lokální modely, které podporují zpracování vizuálního kontextu.
 
 
 ## Rychlý start
@@ -69,7 +76,7 @@ Pokud selže → ověř, že máš nainstalované Visual Studio Build Tools.
 ## Build (vytvoření .exe instalátoru)
 
 ```bash
-npm run build       # NSIS instalátor → dist/Voice Input Setup 1.0.0.exe
+npm run build       # NSIS instalátor
 npm run build:dir   # Rychlejší, bez instalátoru (rozbalená složka)
 ```
 

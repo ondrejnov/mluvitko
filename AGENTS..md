@@ -69,10 +69,10 @@ Global hook via `uiohook-napi` (not Electron `globalShortcut`). Push-to-talk = *
 4. Restore clipboard after 500 ms
 
 ### Volume ducking
-System volume is lowered to 10% during recording to prevent mic feedback. Restored on `stop-recording`.
+System volume is lowered to a user-configured level (default 5%) during recording to prevent mic feedback. Restored on `stop-recording`.
 
 ### Config
-`%APPDATA%\voice-input\config.json` — schema: `{ deviceId: string | null }`. Loaded at startup, written on settings save.
+`%APPDATA%\voice-input\config.json` — schema: `{ deviceId: string | null, duckingVolume: number, ... }`. Loaded at startup, written on settings save.
 
 ## Known Issues / Gotchas
 

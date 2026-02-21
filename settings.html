@@ -21,24 +21,43 @@
       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
 
-    h2 {
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid #e5e5ea;
+      margin-bottom: 16px;
+    }
+
+    .tab {
+      padding: 8px 16px;
+      cursor: pointer;
       font-size: 13px;
       font-weight: 600;
-      color: #666666;
+      color: #888888;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      margin-bottom: 12px;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+      margin-bottom: -1px;
       display: flex;
       align-items: center;
       gap: 8px;
     }
 
-    .section {
-      margin-bottom: 24px;
+    .tab:hover {
+      color: #333333;
     }
 
-    .section:last-child {
-      margin-bottom: 0;
+    .tab.active {
+      color: #007aff;
+      border-bottom-color: #007aff;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
     }
 
     .row {
@@ -169,8 +188,13 @@
 </head>
 <body>
   <div class="container">
-    <div class="section">
-      <h2>🎙 Mikrofon</h2>
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('mic', this)">🎙 Mikrofon</div>
+      <div class="tab" onclick="switchTab('general', this)">⚙️ Obecné</div>
+      <div class="tab" onclick="switchTab('context', this)">🖼 Kontext</div>
+    </div>
+
+    <div id="tab-mic" class="tab-content active">
       <div class="row">
         <label for="mic-select">Vstupní zařízení</label>
         <div>
@@ -182,8 +206,14 @@
       </div>
     </div>
 
-    <div class="section">
-      <h2>⚙️ Obecné</h2>
+    <div id="tab-general" class="tab-content">
+      <div class="row">
+        <label for="ducking-volume">Ztlumit hudbu</label>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <input type="range" id="ducking-volume" min="0" max="100" value="5" style="width: 150px;" oninput="document.getElementById('ducking-volume-val').textContent = this.value + '%'">
+          <span id="ducking-volume-val" style="font-size: 13px; width: 30px; text-align: right;">5%</span>
+        </div>
+      </div>
 
       <div class="row">
         <label for="lang-select">Jazyk vstupu</label>
@@ -215,26 +245,33 @@
       </div>
     </div>
 
-    <div class="section">
-      <h2>🖼 Kontext pro přepis</h2>
+    <div id="tab-context" class="tab-content">
+      <div class="row" id="fixed-prompt-row" style="display:flex; flex-direction: column; align-items: flex-start; gap: 6px;">
+        <label for="fixed-prompt">Prompt pro transkripci</label>
+        <textarea id="fixed-prompt" rows="4" placeholder="Kontext pro přepis, např. 'Programuji v TypeScriptu, React, Node.js...'" style="width: 100%; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; outline: none; resize: vertical; font-family: inherit; color: #333; background: #fff;"></textarea>
+      </div>
+
+      <div class="row" style="flex-direction: column; align-items: flex-start; gap: 6px;">
+        <label for="custom-words">Vlastní slovíčka</label>
+        <textarea id="custom-words" rows="3" placeholder="Specifická slova, jména nebo zkratky oddělené čárkou..." style="width: 100%; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; outline: none; resize: vertical; font-family: inherit; color: #333; background: #fff;"></textarea>
+      </div>
 
       <div class="row">
-        <label for="screenshot-enabled">Pořizovat screenshot</label>
+        <label for="screenshot-enabled">Screenshot context reader</label>
         <label class="switch">
           <input type="checkbox" id="screenshot-enabled" onchange="toggleScreenshotMode()">
           <span class="slider"></span>
         </label>
       </div>
-
       <div class="row" id="llm-url-row">
-        <label for="llm-url">URL lokálního modelu</label>
+        <label for="llm-url">API pro lokální model</label>
         <input type="text" id="llm-url" placeholder="http://10.0.0.232:1234" style="width: 200px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; outline: none;">
       </div>
-
-      <div class="row" id="fixed-prompt-row" style="display:none; flex-direction: column; align-items: flex-start; gap: 6px;">
-        <label for="fixed-prompt">Fixní prompt</label>
-        <textarea id="fixed-prompt" rows="3" placeholder="Kontext pro přepis, např. 'Programuji v TypeScriptu, React, Node.js...'" style="width: 100%; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; outline: none; resize: vertical; font-family: inherit; color: #333; background: #fff;"></textarea>
+      <div class="row" id="llm-prompt-row" style="display:flex; flex-direction: column; align-items: flex-start; gap: 6px;">
+        <label for="llm-prompt">Prompt pro screen reader</label>
+        <textarea id="llm-prompt" rows="3" placeholder="Extrahuj z obrázku klíčové slova..." style="width: 100%; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; outline: none; resize: vertical; font-family: inherit; color: #333; background: #fff;"></textarea>
       </div>
+
     </div>
   </div>
 
@@ -283,10 +320,18 @@
       })
     }
 
+    function switchTab(tabId, element) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'))
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'))
+
+      element.classList.add('active')
+      document.getElementById('tab-' + tabId).classList.add('active')
+    }
+
     function toggleScreenshotMode() {
       const enabled = document.getElementById('screenshot-enabled').checked
       document.getElementById('llm-url-row').style.display = enabled ? '' : 'none'
-      document.getElementById('fixed-prompt-row').style.display = enabled ? 'none' : 'flex'
+      document.getElementById('llm-prompt-row').style.display = enabled ? 'flex' : 'none'
     }
 
     async function loadDevices() {
@@ -302,12 +347,16 @@
         const savedId = cfg.deviceId || ''
 
         document.getElementById('open-at-login').checked = !!cfg.openAtLogin
+        document.getElementById('ducking-volume').value = cfg.duckingVolume !== undefined ? cfg.duckingVolume : 5
+        document.getElementById('ducking-volume-val').textContent = (cfg.duckingVolume !== undefined ? cfg.duckingVolume : 5) + '%'
         document.getElementById('lang-select').value = cfg.language || 'cs'
         renderShortcutOptions(cfg.shortcut || 'Ctrl+Win')
         document.getElementById('api-key').value = cfg.apiKey || ''
         document.getElementById('llm-url').value = cfg.llmUrl || 'http://10.0.0.232:1234'
         document.getElementById('screenshot-enabled').checked = cfg.screenshotEnabled !== false
         document.getElementById('fixed-prompt').value = cfg.fixedPrompt || ''
+        document.getElementById('custom-words').value = cfg.customWords || ''
+        document.getElementById('llm-prompt').value = cfg.llmPrompt || 'Extrahuj z obrázku klíčové slova, názvy proměnných a důležité termíny. Bude to krátký kontext pro speak-to-text model. Max 350 tokenů.'
         toggleScreenshotMode()
 
         sel.innerHTML = ''
@@ -341,13 +390,16 @@
     function save() {
       const deviceId = sel.value || null
       const openAtLogin = document.getElementById('open-at-login').checked
+      const duckingVolume = parseInt(document.getElementById('ducking-volume').value, 10)
       const language = document.getElementById('lang-select').value
       const shortcut = document.getElementById('shortcut-select').value
       const apiKey = document.getElementById('api-key').value
       const llmUrl = document.getElementById('llm-url').value.trim() || 'http://10.0.0.232:1234'
       const screenshotEnabled = document.getElementById('screenshot-enabled').checked
       const fixedPrompt = document.getElementById('fixed-prompt').value
-      ipcRenderer.invoke('save-settings', { deviceId, openAtLogin, language, shortcut, apiKey, llmUrl, screenshotEnabled, fixedPrompt }).then(() => window.close())
+      const customWords = document.getElementById('custom-words').value
+      const llmPrompt = document.getElementById('llm-prompt').value
+      ipcRenderer.invoke('save-settings', { deviceId, openAtLogin, duckingVolume, language, shortcut, apiKey, llmUrl, screenshotEnabled, fixedPrompt, customWords, llmPrompt }).then(() => window.close())
     }
 
     loadDevices()

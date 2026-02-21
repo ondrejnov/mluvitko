@@ -20,9 +20,9 @@ let audioChunks = []
 let recorderWindow = null
 let settingsWindow = null
 let isRecording = false
-let config = { deviceId: null, openAtLogin: false, language: 'cs', shortcut: 'Ctrl+Win', apiKey: '', llmUrl: 'http://10.0.0.232:1234', screenshotEnabled: true, fixedPrompt: '' }
+let config = { deviceId: null, openAtLogin: false, duckingVolume: 5, language: 'cs', shortcut: 'Ctrl+Win', apiKey: '', llmUrl: 'http://10.0.0.232:1234', screenshotEnabled: true, fixedPrompt: '', customWords: '', llmPrompt: 'Extrahuj z obrázku klíčové slova, názvy proměnných a důležité termíny. Bude to krátký kontext pro speak-to-text model. Max 350 tokenů.' }
 let savedVolume = null
-let currentPrompt = ''
+let currentPromptPromise = null
 
 const SUPPORTED_SHORTCUTS = process.platform === 'darwin'
   ? ['Ctrl+Win', 'Alt+Space', 'Shift+Space', 'F8', 'F9', 'F10', 'F12']
@@ -37,11 +37,12 @@ function getEffectiveShortcut(shortcut = config.shortcut) {
   return getDefaultShortcut()
 }
 
-// Uloží aktuální hlasitost a sníží na 5 %
-async function volGetAndSet5() {
+// Uloží aktuální hlasitost a sníží na nastavenou hodnotu
+async function volGetAndSetDucking() {
   try {
     const v = await loudness.getVolume()
-    await loudness.setVolume(10)
+    const targetVol = config.duckingVolume !== undefined ? config.duckingVolume : 5
+    await loudness.setVolume(targetVol)
     return v
   } catch (e) {
     console.error('Hlasitost – chyba při čtení/nastavení:', e.message)
@@ -328,8 +329,8 @@ function openSettings() {
     return
   }
   settingsWindow = new BrowserWindow({
-    width: 450,
-    height: 640,
+    width: 500,
+    height: 700,
     title: 'Nastavení – Mluvítko',
     resizable: false,
     minimizable: false,
@@ -508,7 +509,7 @@ function registerHotkey() {
 // ─── Nahrávání ───────────────────────────────────────────────────────────────
 async function startRecording() {
   console.log('▶ Start nahrávání')
-  savedVolume = await volGetAndSet5()  // Sníž hlasitost PC na 10 %
+  savedVolume = await volGetAndSetDucking()  // Sníž hlasitost PC na nastavenou hodnotu
   setTrayActive(true)
   if (process.platform === 'darwin') {
     overlayWindow.showInactive() // Na macOS show() krade focus, showInactive() ne
@@ -518,15 +519,14 @@ async function startRecording() {
   overlayWindow.webContents.send('recording-start')
   recorderWindow.webContents.send('start-recording')
 
-  // Nastav prompt – fixní nebo ze screenshotu
-  currentPrompt = config.fixedPrompt || ''
-
-  if (config.screenshotEnabled !== false) {
-    try {
-      const screenshotPath = path.join(app.getPath('temp'), 'mluvitko-screenshot.png')
-      await screenshot({ filename: screenshotPath })
-      console.log(`Screenshot uložen: ${screenshotPath}`)
+  // Nastav prompt – fixní nebo ze screenshotu asynchronně
+  currentPromptPromise = (async () => {
+    let basePrompt = config.fixedPrompt || ''
+    if (config.screenshotEnabled !== false) {
       try {
+        const screenshotPath = path.join(app.getPath('temp'), 'mluvitko-screenshot.png')
+        await screenshot({ filename: screenshotPath })
+        console.log(`Screenshot uložen: ${screenshotPath}`)
         if (fs.existsSync(screenshotPath)) {
           const imageBuffer = fs.readFileSync(screenshotPath)
           const base64Image = imageBuffer.toString('base64')
@@ -541,34 +541,37 @@ async function startRecording() {
                 {
                   role: 'user',
                   content: [
-                    { type: 'text', text: 'Co je na tomto obrázku? Popiš nejdůležitější prvky, texty, názvy proměnných a jména. Bude to krátký kontext pro speak-to-text model. Max 400 tokenů.' },
+                    //{ type: 'text', text: 'Co je na tomto obrázku? Popiš nejdůležitější prvky, texty, názvy proměnných a jména. Bude to krátký kontext pro speak-to-text model. Max 350 tokenů.' },
+                    { type: 'text', text: config.llmPrompt || 'Extrahuj z obrázku klíčové slova, názvy proměnných a důležité termíny. Bude to krátký kontext pro speak-to-text model. Max 350 tokenů.' },
                     { type: 'image_url', image_url: { url: `data:image/png;base64,${base64Image}` } }
                   ]
                 }
               ],
-              max_tokens: 400
+              max_tokens: 350
             })
           })
 
           if (llmRes.ok) {
             const llmData = await llmRes.json()
             if (llmData.choices && llmData.choices.length > 0) {
-              currentPrompt = llmData.choices[0].message.content
-              console.log('LLM Odpověď:', currentPrompt)
+              const llmContent = llmData.choices[0].message.content
+              const screenshotContext = `Na screenshotu je vidět: ${llmContent}`
+              const finalPrompt = basePrompt ? `${basePrompt}\n\n${screenshotContext}` : screenshotContext
+              //console.log('LLM Odpověď:', finalPrompt)
+              return finalPrompt
             }
           } else {
             console.error('Chyba z LLM:', await llmRes.text())
           }
         }
-      } catch (llmErr) {
-        console.error('Chyba při volání LLM:', llmErr)
+      } catch (err) {
+        console.error('Chyba při pořizování/zpracování screenshotu:', err)
       }
-    } catch (err) {
-      console.error('Chyba při pořizování screenshotu:', err)
+    } else {
+      console.log('Screenshot vypnut, používám fixní prompt.')
     }
-  } else {
-    console.log('Screenshot vypnut, používám fixní prompt.')
-  }
+    return basePrompt
+  })()
 }
 
 async function stopAndSend() {
@@ -598,7 +601,6 @@ ipcMain.handle('save-settings', (event, newConfig) => {
 ipcMain.handle('get-user', () => config.user)
 //ipcMain.handle('login', () => handleLogin())
 //ipcMain.handle('logout', () => handleLogout())
-
 // ─── IPC: přijmi audio z recorder.html ───────────────────────────────────────
 
 ipcMain.on('audio-data', async (event, arrayBuffer) => {
@@ -608,8 +610,20 @@ ipcMain.on('audio-data', async (event, arrayBuffer) => {
   const rand = Math.round(Date.now())
   const tempPath = path.join(app.getPath('temp'), `audio_${rand}.webm`)
   fs.writeFileSync(tempPath, Buffer.from(arrayBuffer))
+  //const tempPath = "c:\\Users\\ondrej\\AppData\\Local\\Temp\\audio_1771668795598.webm"
 
   console.log(`Audio uloženo: ${tempPath} (${Buffer.from(arrayBuffer).length} bytes)`)
+
+  let resolvedPrompt = ''
+  if (currentPromptPromise) {
+    try {
+      resolvedPrompt = await currentPromptPromise
+    } catch (e) {
+      console.error('Chyba při získávání promptu:', e)
+      resolvedPrompt = config.fixedPrompt || ''
+    }
+  }
+
 
   try {
     if (!config.apiKey) {
@@ -617,11 +631,14 @@ ipcMain.on('audio-data', async (event, arrayBuffer) => {
     }
     const openai = new OpenAI({ apiKey: config.apiKey })
 
+    const finalPrompt = (resolvedPrompt + (config.customWords ? "\nspecifické slova: " + config.customWords : '')).trim()
+    console.log(finalPrompt)
+
     const transcription = await openai.audio.transcriptions.create({
       model: 'gpt-4o-transcribe',
       file: fs.createReadStream(tempPath),
-      prompt: currentPrompt || undefined,
-      language: config.language && config.language !== 'auto' ? config.language : undefined
+      prompt: finalPrompt || undefined,
+      //language: config.language && config.language !== 'auto' ? config.language : undefined
     })
 
     //const transcription = {text: 'Simulovaná transkripce – nahrajte skutečný audio soubor a nastavte OpenAI API klíč pro získání reálné transkripce.'}
@@ -661,7 +678,7 @@ ipcMain.on('audio-data', async (event, arrayBuffer) => {
     setTimeout(() => tray.setToolTip(`Mluvítko – drž ${getShortcutLabel()} pro nahrávání`), 3000)
   } finally {
     try {
-      if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath)
+      //if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath)
     } catch (e) {
       console.error('Chyba při mazání dočasného souboru:', e.message)
     }

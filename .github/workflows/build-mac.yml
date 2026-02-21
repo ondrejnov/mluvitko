@@ -46,14 +46,14 @@ jobs:
       - name: Upload arm64 artifact
         uses: actions/upload-artifact@v4
         with:
-          name: mluvitko-macos-arm64.dmg
+          name: mluvitko-macos-arm64.dmg.zip
           path: dist/*-arm64.dmg
           if-no-files-found: error
 
       - name: Upload x64 artifact
         uses: actions/upload-artifact@v4
         with:
-          name: mluvitko-macos-x64.dmg
+          name: mluvitko-macos-x64.dmg.zip
           path: |
             dist/*.dmg
             !dist/*-arm64.dmg

@@ -509,7 +509,13 @@ function registerHotkey() {
 // ─── Nahrávání ───────────────────────────────────────────────────────────────
 async function startRecording() {
   console.log('▶ Start nahrávání')
-  savedVolume = await volGetAndSetDucking()  // Sníž hlasitost PC na nastavenou hodnotu
+
+  // Okamžitě pošli signál k nahrávání, nečekej na změnu hlasitosti (na Macu to trvá i 500ms)
+  recorderWindow.webContents.send('start-recording')
+
+  // Hlasitost snižuj asynchronně
+  volGetAndSetDucking().then(v => { savedVolume = v })
+
   setTrayActive(true)
   if (process.platform === 'darwin') {
     overlayWindow.showInactive() // Na macOS show() krade focus, showInactive() ne
@@ -517,7 +523,6 @@ async function startRecording() {
     overlayWindow.show()
   }
   overlayWindow.webContents.send('recording-start')
-  recorderWindow.webContents.send('start-recording')
 
   // Nastav prompt – fixní nebo ze screenshotu asynchronně
   currentPromptPromise = (async () => {
@@ -576,12 +581,15 @@ async function startRecording() {
 
 async function stopAndSend() {
   console.log('⏹ Stop nahrávání')
-  await volRestore()  // Obnov hlasitost hned po zastavení nahrávání
+
+  // Okamžitě zastav nahrávání
+  recorderWindow.webContents.send('stop-recording')
+
+  // Obnov hlasitost asynchronně
+  volRestore()
+
   setTrayActive(false)
   overlayWindow.webContents.send('recording-stop')
-
-  // Počkej na audio data z renderer procesu
-  recorderWindow.webContents.send('stop-recording')
 }
 
 // ─── IPC: nastavení ─────────────────────────────────────────────────────────

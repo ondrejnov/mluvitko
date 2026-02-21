@@ -39,7 +39,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: mluvitko-windows
+          name: mluvitko-windows.zip
           path: |
             dist/*.exe
             dist/*.zip

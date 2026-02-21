@@ -617,14 +617,14 @@ ipcMain.on('audio-data', async (event, arrayBuffer) => {
     }
     const openai = new OpenAI({ apiKey: config.apiKey })
 
-    // const transcription = await openai.audio.transcriptions.create({
-    //   model: 'gpt-4o-transcribe',
-    //   file: fs.createReadStream(tempPath),
-    //   prompt: currentPrompt || undefined,
-    //   language: config.language && config.language !== 'auto' ? config.language : undefined
-    // })
+    const transcription = await openai.audio.transcriptions.create({
+      model: 'gpt-4o-transcribe',
+      file: fs.createReadStream(tempPath),
+      prompt: currentPrompt || undefined,
+      language: config.language && config.language !== 'auto' ? config.language : undefined
+    })
 
-    const transcription = {text: 'Simulovaná transkripce – nahrajte skutečný audio soubor a nastavte OpenAI API klíč pro získání reálné transkripce.'}
+    //const transcription = {text: 'Simulovaná transkripce – nahrajte skutečný audio soubor a nastavte OpenAI API klíč pro získání reálné transkripce.'}
     const text = transcription.text
     console.log('Transkripce:', text)
 

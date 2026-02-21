@@ -1,4 +1,4 @@
-name: Build macOS
+name: Build Windows
 
 on:
   push:
@@ -15,8 +15,8 @@ jobs:
       matrix:
         arch: [x64]
 
-    runs-on: macos-latest
-    name: macOS ${{ matrix.arch }}
+    runs-on: windows-latest
+    name: Windows ${{ matrix.arch }}
 
     steps:
       - name: Checkout
@@ -31,32 +31,18 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Pokud nejsou nastaveny signing secrets, build proběhne bez podpisu.
-      # Potřebné GitHub secrets:
-      #   MAC_CERTIFICATE           – base64 zakódovaný .p12 certifikát
-      #   MAC_CERTIFICATE_PASSWORD  – heslo k certifikátu
-      #   APPLE_ID                  – Apple ID pro notarizaci
-      #   APPLE_APP_SPECIFIC_PASSWORD – app-specific heslo pro notarizaci
-      #   APPLE_TEAM_ID             – Team ID z Apple Developer účtu
       - name: Build
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx electron-builder --mac
+        run: npx electron-builder --win
 
-      - name: Upload arm64 artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: mluvitko-macos-arm64.dmg
-          path: dist/*-arm64.dmg
-          if-no-files-found: error
-
-      - name: Upload x64 artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: mluvitko-macos-x64.dmg
+          name: mluvitko-windows
           path: |
-            dist/*.dmg
-            !dist/*-arm64.dmg
+            dist/*.exe
+            dist/*.zip
           if-no-files-found: error
 
   # Vytvoří GitHub Release a nahraje artefakty při push tagu v*

@@ -287,6 +287,7 @@ function createOverlay() {
     height: 70,
     frame: false,
     transparent: true,
+    backgroundColor: '#00000000',
     alwaysOnTop: true,
     skipTaskbar: true,
     resizable: false,
@@ -299,12 +300,6 @@ function createOverlay() {
   })
 
   overlayWindow.loadFile('overlay.html')
-
-  // Pozice: pravý dolní roh nad systray
-  overlayWindow.on('ready-to-show', () => {
-    const { width, height } = screen.getPrimaryDisplay().workAreaSize
-    overlayWindow.setPosition(width - 90, height - 90)
-  })
 }
 
 // ─── Recorder okno (skrytý renderer pro Web Audio API) ───────────────────────
@@ -517,6 +512,9 @@ async function startRecording() {
   volGetAndSetDucking().then(v => { savedVolume = v })
 
   setTrayActive(true)
+  // Přepočítej pozici vždy před zobrazením (řeší produkční build, různé DPI, vzdálené plochy)
+  const { width, height } = screen.getPrimaryDisplay().workAreaSize
+  overlayWindow.setPosition(width - 90, height - 90)
   if (process.platform === 'darwin') {
     overlayWindow.showInactive() // Na macOS show() krade focus, showInactive() ne
   } else {

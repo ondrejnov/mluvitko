@@ -295,11 +295,20 @@ function createOverlay() {
     show: false,
     webPreferences: {
       nodeIntegration: true,
-      contextIsolation: false
+      contextIsolation: false,
+      backgroundThrottling: false  // Renderer nesmí být uspán, jinak se IPC zpráva zpracuje pozdě
     }
   })
 
-  overlayWindow.loadFile('overlay.html')
+  overlayWindow.loadFile(path.join(__dirname, 'overlay.html'))
+
+  // Pokud renderer crashne nebo je okno zavřeno, vytvoř ho znovu
+  overlayWindow.on('closed', () => { overlayWindow = null })
+  overlayWindow.webContents.on('render-process-gone', (_event, details) => {
+    console.error('Overlay renderer zhasnul:', details.reason)
+    overlayWindow = null
+    createOverlay()
+  })
 }
 
 // ─── Recorder okno (skrytý renderer pro Web Audio API) ───────────────────────
@@ -512,6 +521,12 @@ async function startRecording() {
   volGetAndSetDucking().then(v => { savedVolume = v })
 
   setTrayActive(true)
+
+  // Pokud bylo okno zničeno (crash rendereru), vytvoř ho znovu
+  if (!overlayWindow || overlayWindow.isDestroyed()) {
+    createOverlay()
+  }
+
   // Přepočítej pozici vždy před zobrazením (řeší produkční build, různé DPI, vzdálené plochy)
   const { width, height } = screen.getPrimaryDisplay().workAreaSize
   overlayWindow.setPosition(width - 90, height - 90)
@@ -520,7 +535,14 @@ async function startRecording() {
   } else {
     overlayWindow.show()
   }
-  overlayWindow.webContents.send('recording-start')
+  // Vynuť z-order po show() – na Windows občas nestačí jen konstruktor
+  overlayWindow.setAlwaysOnTop(true, 'pop-up-menu')
+  // Pošli IPC s malým zpožděním – pokud byl renderer throttled, potřebuje chvíli se probudit
+  setTimeout(() => {
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
+      overlayWindow.webContents.send('recording-start')
+    }
+  }, 50)
 
   // Nastav prompt – fixní nebo ze screenshotu asynchronně
   currentPromptPromise = (async () => {

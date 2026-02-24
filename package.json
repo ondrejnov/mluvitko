@@ -9,7 +9,8 @@
     "build": "electron-builder --win",
     "build:dir": "electron-builder --win --dir",
     "build:mac": "electron-builder --mac",
-    "build:mac:dir": "electron-builder --mac --dir"
+    "build:mac:dir": "electron-builder --mac --dir",
+    "build:portable": "electron-builder --win portable"
   },
   "dependencies": {
     "@jitsi/robotjs": "^0.6.21",
@@ -54,6 +55,12 @@
           "arch": [
             "x64"
           ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "assets/icon.ico"
@@ -61,6 +68,9 @@
     "nsis": {
       "oneClick": true,
       "runAfterFinish": true
+    },
+    "portable": {
+      "artifactName": "Mluvitko-portable.exe"
     },
     "files": [
       "main.js",

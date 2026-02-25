@@ -23,6 +23,7 @@ let isRecording = false
 let config = { deviceId: null, openAtLogin: false, duckingVolume: 5, language: 'cs', shortcut: 'Ctrl+Win', apiKey: '', llmUrl: 'http://10.0.0.232:1234', screenshotEnabled: true, fixedPrompt: '', customWords: '', llmPrompt: 'Extrahuj z obrázku klíčové slova, názvy proměnných a důležité termíny. Bude to krátký kontext pro speak-to-text model. Max 350 tokenů.' }
 let savedVolume = null
 let currentPromptPromise = null
+let isShuttingDown = false
 
 const SUPPORTED_SHORTCUTS = process.platform === 'darwin'
   ? ['Ctrl+Win', 'Alt+Space', 'Shift+Space', 'F8', 'F9', 'F10', 'F12']
@@ -220,7 +221,18 @@ app.whenReady().then(() => {
 // })
 
 app.on('window-all-closed', (e) => e.preventDefault()) // Tray app – nezavírat
-app.on('will-quit', () => globalShortcut.unregisterAll())
+app.on('will-quit', () => {
+  isShuttingDown = true
+  globalShortcut.unregisterAll()
+})
+
+process.on('uncaughtException', (err) => {
+  console.error('Neodchycená chyba v hlavním procesu:', err)
+})
+
+process.on('unhandledRejection', (reason) => {
+  console.error('Neodchycený promise reject v hlavním procesu:', reason)
+})
 
 // ─── Tray ────────────────────────────────────────────────────────────────────
 function getShortcutLabel() {
@@ -280,8 +292,46 @@ function setTrayActive(active) {
   tray.setToolTip(active ? '🔴 Nahrávám...' : `Mluvítko – drž ${shortcut} pro nahrávání`)
 }
 
+function isWindowUsable(win) {
+  return !!(win && !win.isDestroyed() && win.webContents && !win.webContents.isDestroyed())
+}
+
+function safeSendToWindow(win, channel, ...args) {
+  try {
+    if (!isWindowUsable(win)) return false
+    win.webContents.send(channel, ...args)
+    return true
+  } catch (e) {
+    console.error(`IPC send selhal (${channel}):`, e.message)
+    return false
+  }
+}
+
+function hideOverlayIfVisible() {
+  if (!isWindowUsable(overlayWindow)) return
+  try {
+    overlayWindow.hide()
+  } catch (e) {
+    console.error('Chyba při skrývání overlay:', e.message)
+  }
+}
+
+function ensureOverlayWindow() {
+  if (isWindowUsable(overlayWindow)) return overlayWindow
+  createOverlay()
+  return overlayWindow
+}
+
+function ensureRecorderWindow() {
+  if (isWindowUsable(recorderWindow)) return recorderWindow
+  createRecorderWindow()
+  return recorderWindow
+}
+
 // ─── Overlay okno ────────────────────────────────────────────────────────────
 function createOverlay() {
+  if (isWindowUsable(overlayWindow)) return
+
   overlayWindow = new BrowserWindow({
     width: 70,
     height: 70,
@@ -307,12 +357,14 @@ function createOverlay() {
   overlayWindow.webContents.on('render-process-gone', (_event, details) => {
     console.error('Overlay renderer zhasnul:', details.reason)
     overlayWindow = null
-    createOverlay()
+    if (!isShuttingDown) setTimeout(() => createOverlay(), 300)
   })
 }
 
 // ─── Recorder okno (skrytý renderer pro Web Audio API) ───────────────────────
 function createRecorderWindow() {
+  if (isWindowUsable(recorderWindow)) return
+
   recorderWindow = new BrowserWindow({
     show: false,
     webPreferences: {
@@ -322,7 +374,19 @@ function createRecorderWindow() {
   })
   recorderWindow.loadFile('recorder.html')
   recorderWindow.webContents.once('did-finish-load', () => {
-    recorderWindow.webContents.send('set-device', config.deviceId)
+    safeSendToWindow(recorderWindow, 'set-device', config.deviceId)
+  })
+
+  recorderWindow.on('closed', () => {
+    console.warn('Recorder window zavřeno, obnovuji...')
+    recorderWindow = null
+    if (!isShuttingDown) setTimeout(() => createRecorderWindow(), 300)
+  })
+
+  recorderWindow.webContents.on('render-process-gone', (_event, details) => {
+    console.error('Recorder renderer zhasnul:', details.reason)
+    recorderWindow = null
+    if (!isShuttingDown) setTimeout(() => createRecorderWindow(), 300)
   })
 }
 
@@ -516,7 +580,14 @@ async function startRecording() {
   console.log('▶ Start nahrávání')
 
   // Okamžitě pošli signál k nahrávání, nečekej na změnu hlasitosti (na Macu to trvá i 500ms)
-  recorderWindow.webContents.send('start-recording')
+  const recorder = ensureRecorderWindow()
+  if (!safeSendToWindow(recorder, 'start-recording')) {
+    console.error('Start nahrávání selhal: recorder window není dostupné')
+    isRecording = false
+    activeKeys.clear()
+    setTrayActive(false)
+    return
+  }
 
   // Hlasitost snižuj asynchronně
   volGetAndSetDucking().then(v => { savedVolume = v })
@@ -524,21 +595,19 @@ async function startRecording() {
   setTrayActive(true)
 
   // Pokud bylo okno zničeno (crash rendereru), vytvoř ho znovu
-  if (!overlayWindow || overlayWindow.isDestroyed()) {
-    createOverlay()
-  }
+  const overlay = ensureOverlayWindow()
 
   // Přepočítej pozici vždy před zobrazením (řeší produkční build, různé DPI, vzdálené plochy)
-  const { width, height } = screen.getPrimaryDisplay().workAreaSize
-  overlayWindow.setPosition(width - 90, height - 90)
-  overlayWindow.showInactive() // showInactive() nekrade focus ani na macOS ani na Windows
-  // Vynuť z-order po show() – na Windows občas nestačí jen konstruktor
-  overlayWindow.setAlwaysOnTop(true, 'pop-up-menu')
+  if (isWindowUsable(overlay)) {
+    const { width, height } = screen.getPrimaryDisplay().workAreaSize
+    overlay.setPosition(width - 90, height - 90)
+    overlay.showInactive() // showInactive() nekrade focus ani na macOS ani na Windows
+    // Vynuť z-order po show() – na Windows občas nestačí jen konstruktor
+    overlay.setAlwaysOnTop(true, 'pop-up-menu')
+  }
   // Pošli IPC s malým zpožděním – pokud byl renderer throttled, potřebuje chvíli se probudit
   setTimeout(() => {
-    if (overlayWindow && !overlayWindow.isDestroyed()) {
-      overlayWindow.webContents.send('recording-start')
-    }
+    safeSendToWindow(overlayWindow, 'recording-start')
   }, 50)
 
   // Nastav prompt – fixní nebo ze screenshotu asynchronně
@@ -608,20 +677,20 @@ async function stopAndSend() {
   console.log('⏹ Stop nahrávání')
 
   // Okamžitě zastav nahrávání
-  recorderWindow.webContents.send('stop-recording')
+  safeSendToWindow(recorderWindow, 'stop-recording')
 
   // Obnov hlasitost asynchronně
   volRestore()
 
   setTrayActive(false)
-  overlayWindow.webContents.send('recording-stop')
+  safeSendToWindow(overlayWindow, 'recording-stop')
 }
 
 ipcMain.on('recording-error', (_event, err) => {
   console.error('Chyba mikrofonu:', err.code, err.message)
   isRecording = false
   activeKeys.clear()
-  overlayWindow.hide()
+  hideOverlayIfVisible()
   setTrayActive(false)
   tray.setToolTip(`❌ Mikrofon: ${err.message}`)
   setTimeout(() => tray.setToolTip(`Mluvítko – drž ${getShortcutLabel()} pro nahrávání`), 3000)
@@ -648,7 +717,7 @@ ipcMain.handle('get-user', () => config.user)
 
 ipcMain.on('audio-data', async (event, arrayBuffer) => {
   // Přepni overlay do stavu "zpracovávám" – neztrácíme focus na inputu
-  overlayWindow.webContents.send('transcribing')
+  safeSendToWindow(overlayWindow, 'transcribing')
 
   const rand = Math.round(Date.now())
   const tempPath = path.join(app.getPath('temp'), `audio_${rand}.webm`)
@@ -692,7 +761,7 @@ ipcMain.on('audio-data', async (event, arrayBuffer) => {
 
     if (finalText) {
       // Skryj overlay těsně před vložením, aby focus zůstal na inputu
-      overlayWindow.hide()
+      hideOverlayIfVisible()
 
       // Krátká pauza – systém musí přepnout focus zpět na okno pod overlay
       await new Promise(resolve => setTimeout(resolve, 80))
@@ -710,11 +779,11 @@ ipcMain.on('audio-data', async (event, arrayBuffer) => {
       // Obnov původní obsah schránky po malém zpoždění
       setTimeout(() => clipboard.writeText(prevClipboard), 500)
     } else {
-      overlayWindow.hide()
+      hideOverlayIfVisible()
     }
 
   } catch (err) {
-    overlayWindow.hide()
+    hideOverlayIfVisible()
     console.error('Chyba při transkripci:', err.message)
     // Zobraz chybu v tray tooltipu na 3s
     tray.setToolTip(`❌ Chyba: ${err.message}`)

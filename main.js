@@ -495,6 +495,7 @@ function registerHotkey() {
 
       if (!targetKeys.every(k => activeKeys.has(k)) && isRecording) {
         isRecording = false
+        activeKeys.clear() // Reset – předchází zaseknutí po zmeškaném keyup eventu
         stopAndSend()
       }
     })
@@ -530,11 +531,7 @@ async function startRecording() {
   // Přepočítej pozici vždy před zobrazením (řeší produkční build, různé DPI, vzdálené plochy)
   const { width, height } = screen.getPrimaryDisplay().workAreaSize
   overlayWindow.setPosition(width - 90, height - 90)
-  if (process.platform === 'darwin') {
-    overlayWindow.showInactive() // Na macOS show() krade focus, showInactive() ne
-  } else {
-    overlayWindow.show()
-  }
+  overlayWindow.showInactive() // showInactive() nekrade focus ani na macOS ani na Windows
   // Vynuť z-order po show() – na Windows občas nestačí jen konstruktor
   overlayWindow.setAlwaysOnTop(true, 'pop-up-menu')
   // Pošli IPC s malým zpožděním – pokud byl renderer throttled, potřebuje chvíli se probudit
@@ -557,24 +554,32 @@ async function startRecording() {
           const base64Image = imageBuffer.toString('base64')
 
           console.log('Odesílám screenshot do LM Studio...')
-          const llmRes = await fetch(`${config.llmUrl}/v1/chat/completions`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              model: 'local-model',
-              messages: [
-                {
-                  role: 'user',
-                  content: [
-                    //{ type: 'text', text: 'Co je na tomto obrázku? Popiš nejdůležitější prvky, texty, názvy proměnných a jména. Bude to krátký kontext pro speak-to-text model. Max 350 tokenů.' },
-                    { type: 'text', text: config.llmPrompt || 'Extrahuj z obrázku klíčové slova, názvy proměnných a důležité termíny. Bude to krátký kontext pro speak-to-text model. Max 350 tokenů.' },
-                    { type: 'image_url', image_url: { url: `data:image/png;base64,${base64Image}` } }
-                  ]
-                }
-              ],
-              max_tokens: 350
+          const llmAbort = new AbortController()
+          const llmTimeout = setTimeout(() => llmAbort.abort(), 10000) // 10s timeout
+          let llmRes
+          try {
+            llmRes = await fetch(`${config.llmUrl}/v1/chat/completions`, {
+              method: 'POST',
+              signal: llmAbort.signal,
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                model: 'local-model',
+                messages: [
+                  {
+                    role: 'user',
+                    content: [
+                      //{ type: 'text', text: 'Co je na tomto obrázku? Popiš nejdůležitější prvky, texty, názvy proměnných a jména. Bude to krátký kontext pro speak-to-text model. Max 350 tokenů.' },
+                      { type: 'text', text: config.llmPrompt || 'Extrahuj z obrázku klíčové slova, názvy proměnných a důležité termíny. Bude to krátký kontext pro speak-to-text model. Max 350 tokenů.' },
+                      { type: 'image_url', image_url: { url: `data:image/png;base64,${base64Image}` } }
+                    ]
+                  }
+                ],
+                max_tokens: 350
+              })
             })
-          })
+          } finally {
+            clearTimeout(llmTimeout)
+          }
 
           if (llmRes.ok) {
             const llmData = await llmRes.json()
@@ -611,6 +616,16 @@ async function stopAndSend() {
   setTrayActive(false)
   overlayWindow.webContents.send('recording-stop')
 }
+
+ipcMain.on('recording-error', (_event, err) => {
+  console.error('Chyba mikrofonu:', err.code, err.message)
+  isRecording = false
+  activeKeys.clear()
+  overlayWindow.hide()
+  setTrayActive(false)
+  tray.setToolTip(`❌ Mikrofon: ${err.message}`)
+  setTimeout(() => tray.setToolTip(`Mluvítko – drž ${getShortcutLabel()} pro nahrávání`), 3000)
+})
 
 // ─── IPC: nastavení ─────────────────────────────────────────────────────────
 ipcMain.handle('get-config', () => config)

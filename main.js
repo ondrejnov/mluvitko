@@ -25,6 +25,27 @@ let savedVolume = null
 let currentPromptPromise = null
 let isShuttingDown = false
 
+function configureRuntimePaths() {
+  try {
+    const cachePath = path.join(app.getPath('temp'), 'mluvitko-cache')
+    const sessionDataPath = path.join(cachePath, 'session-data')
+
+    fs.mkdirSync(cachePath, { recursive: true })
+    fs.mkdirSync(sessionDataPath, { recursive: true })
+
+    app.setPath('cache', cachePath)
+    app.setPath('sessionData', sessionDataPath)
+  } catch (e) {
+    console.warn('Nepodařilo se nastavit sessionData path:', e.message)
+  }
+
+  app.commandLine.appendSwitch('disk-cache-dir', path.join(app.getPath('temp'), 'mluvitko-cache'))
+  app.commandLine.appendSwitch('disable-gpu-shader-disk-cache')
+  app.commandLine.appendSwitch('disable-http-cache')
+}
+
+configureRuntimePaths()
+
 const SUPPORTED_SHORTCUTS = process.platform === 'darwin'
   ? ['Ctrl+Win', 'Alt+Space', 'Shift+Space', 'F8', 'F9', 'F10', 'F12']
   : ['Ctrl+Win', 'Ctrl+Space', 'Ctrl+M', 'Alt+Space', 'Shift+Space', 'F8', 'F9', 'F10', 'F12']
@@ -232,6 +253,14 @@ process.on('uncaughtException', (err) => {
 
 process.on('unhandledRejection', (reason) => {
   console.error('Neodchycený promise reject v hlavním procesu:', reason)
+})
+
+app.on('render-process-gone', (_event, webContents, details) => {
+  console.error('Renderer process gone:', details.reason, 'exitCode:', details.exitCode, 'url:', webContents.getURL())
+})
+
+app.on('child-process-gone', (_event, details) => {
+  console.error('Child process gone:', details.type, details.reason, 'exitCode:', details.exitCode)
 })
 
 // ─── Tray ────────────────────────────────────────────────────────────────────
@@ -491,7 +520,7 @@ async function authenticateWithBackend(idToken) {
     saveConfig()
     updateTrayMenu()
     if (accountWindow && !accountWindow.isDestroyed()) {
-      accountWindow.webContents.send('user-updated', config.user)
+      safeSendToWindow(accountWindow, 'user-updated', config.user)
     }
   } catch (err) {
     console.error('Chyba ověření vůči backendu:', err)
@@ -705,7 +734,7 @@ ipcMain.handle('save-settings', (event, newConfig) => {
   applyLoginSettings()
   updateTrayMenu()
   if (recorderWindow && !recorderWindow.isDestroyed()) {
-    recorderWindow.webContents.send('set-device', config.deviceId)
+    safeSendToWindow(recorderWindow, 'set-device', config.deviceId)
   }
 })
 

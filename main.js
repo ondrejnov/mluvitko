@@ -751,7 +751,6 @@ ipcMain.on('audio-data', async (event, arrayBuffer) => {
   const rand = Math.round(Date.now())
   const tempPath = path.join(app.getPath('temp'), `audio_${rand}.webm`)
   fs.writeFileSync(tempPath, Buffer.from(arrayBuffer))
-  //const tempPath = "c:\\Users\\ondrej\\AppData\\Local\\Temp\\audio_1771668795598.webm"
 
   console.log(`Audio uloženo: ${tempPath} (${Buffer.from(arrayBuffer).length} bytes)`)
 
@@ -819,7 +818,7 @@ ipcMain.on('audio-data', async (event, arrayBuffer) => {
     setTimeout(() => tray.setToolTip(`Mluvítko – drž ${getShortcutLabel()} pro nahrávání`), 3000)
   } finally {
     try {
-      //if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath)
+      if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath)
     } catch (e) {
       console.error('Chyba při mazání dočasného souboru:', e.message)
     }

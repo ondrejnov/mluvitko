@@ -123,7 +123,7 @@ voice-input/
 → Ujisti se, že kurzor je v textovém poli před stiskem zvolené zkratky
 
 **OpenAI API klíč není nastaven:**
-→ Otevři nastavení aplikace a zadej svůj OpenAI API klíč.
+→ Zkopíruj `.env.example` na `.env`, vyplň `OPENAI_API_KEY=` svým klíčem a ulož. Případně nastav proměnnou prostředí `OPENAI_API_KEY`, nebo zadej klíč v nastavení aplikace. Pořadí přednosti: proměnná prostředí `OPENAI_API_KEY` → hodnota z `.env` (použije se jen pokud není proměnná prostředí nastavena) → nastavení v aplikaci.
 
 ---
 

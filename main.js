@@ -1,5 +1,7 @@
 const path = require('path')
-require('dotenv').config({ path: path.join(__dirname, '.env') })
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config({ path: path.join(process.cwd(), '.env') })
+}
 
 const { app, globalShortcut, Tray, BrowserWindow, ipcMain, clipboard, screen, nativeImage, dialog, systemPreferences, shell } = require('electron')
 //const { autoUpdater } = require('electron-updater')

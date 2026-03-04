@@ -1,7 +1,9 @@
+const path = require('path')
+require('dotenv').config({ path: path.join(__dirname, '.env') })
+
 const { app, globalShortcut, Tray, BrowserWindow, ipcMain, clipboard, screen, nativeImage, dialog, systemPreferences, shell } = require('electron')
 //const { autoUpdater } = require('electron-updater')
 const screenshot = require('screenshot-desktop')
-const path = require('path')
 const fetch = (...args) => import('node-fetch').then(({ default: f }) => f(...args))
 const fs = require('fs')
 const loudness = require('loudness')
@@ -766,11 +768,12 @@ ipcMain.on('audio-data', async (event, arrayBuffer) => {
   }
 
 
+  const apiKey = process.env.OPENAI_API_KEY || config.apiKey
   try {
-    if (!config.apiKey) {
-      throw new Error('Není nastaven OpenAI API klíč. Nastavte jej v nastavení.')
+    if (!apiKey || !apiKey.trim()) {
+      throw new Error('Není nastaven OpenAI API klíč. Nastavte OPENAI_API_KEY v .env nebo v nastavení aplikace.')
     }
-    const openai = new OpenAI({ apiKey: config.apiKey })
+    const openai = new OpenAI({ apiKey: apiKey.trim() })
 
     const finalPrompt = (resolvedPrompt + (config.customWords ? "\nspecifické slova: " + config.customWords : '')).trim()
     console.log(finalPrompt)

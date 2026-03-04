@@ -657,7 +657,7 @@ async function startRecording() {
 
           console.log('Odesílám screenshot do LM Studio...')
           const llmAbort = new AbortController()
-          const llmTimeout = setTimeout(() => llmAbort.abort(), 10000) // 10s timeout
+          const llmTimeout = setTimeout(() => llmAbort.abort(), 30000) // 30s timeout
           let llmRes
           try {
             llmRes = await fetch(`${config.llmUrl}/v1/chat/completions`, {
